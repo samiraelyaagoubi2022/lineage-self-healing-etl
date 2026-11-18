@@ -1,0 +1,113 @@
+# Marquez (lineage) + Airflow (orchestration) dans un seul docker-compose.
+# Utilisation : docker compose up -d --build
+# Variables : voir .env.example (copier en .env)
+
+name: lineage-self-healing-etl
+
+services:
+  # ---------------------------------------------------------------- MARQUEZ
+  marquez-db:
+    image: postgres:14
+    container_name: marquez-db
+    environment:
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez
+    volumes:
+      - marquez-db-data:/var/lib/postgresql/data
+    networks:
+      default:
+        aliases:
+          - postgres   # le nom "postgres" est attendu par la config par défaut de Marquez
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marquez -d marquez"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  marquez-api:
+    image: marquezproject/marquez:${MARQUEZ_TAG:-0.50.0}
+    container_name: marquez-api
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez
+      MARQUEZ_PORT: "5000"
+      MARQUEZ_ADMIN_PORT: "5001"
+    ports:
+      - "${MARQUEZ_API_PORT:-5000}:5000"   # sur macOS, mettre 9000 dans .env
+      - "5001:5001"
+    depends_on:
+      marquez-db:
+        condition: service_healthy
+
+  marquez-web:
+    image: marquezproject/marquez-web:${MARQUEZ_TAG:-0.50.0}
+    container_name: marquez-web
+    environment:
+      MARQUEZ_HOST: marquez-api
+      MARQUEZ_PORT: "5000"
+      WEB_PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - marquez-api
+
+  # ---------------------------------------------------------------- AIRFLOW
+  airflow-db:
+    image: postgres:14
+    container_name: airflow-db
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  airflow:
+    build: ./airflow
+    container_name: airflow
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "cle-locale-de-developpement"
+      # Envoi des événements de lineage vers Marquez (réseau interne Docker : port 5000)
+      AIRFLOW__OPENLINEAGE__TRANSPORT: '{"type": "http", "url": "http://marquez-api:5000", "endpoint": "api/v1/lineage"}'
+      AIRFLOW__OPENLINEAGE__NAMESPACE: projet
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./data:/opt/airflow/data
+      - ./dbt:/opt/airflow/dbt
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      marquez-api:
+        condition: service_started
+    # Un seul conteneur pour le développement. Les commandes s'exécutent dans l'ordre :
+    # 1) migration de la base, 2) compte admin, 3) scheduler en arrière-plan, 4) serveur web au premier plan.
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        airflow db migrate
+        airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@example.com || true
+        airflow scheduler &
+        exec airflow webserver
+
+volumes:
+  marquez-db-data:
+  airflow-db-data:
