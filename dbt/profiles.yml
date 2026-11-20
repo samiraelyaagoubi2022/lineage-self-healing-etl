@@ -1,0 +1,7 @@
+lineage_etl:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: lineage.duckdb
+      threads: 4

@@ -1,9 +1,22 @@
+# Airflow
 airflow/logs/
 
+# Secrets
 .env
+
+# Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Donnees
 data/raw/
 *.duckdb
+*.duckdb.wal
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
