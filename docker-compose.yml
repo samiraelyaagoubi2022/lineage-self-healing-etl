@@ -87,6 +87,7 @@ services:
       AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
       # dbt : emplacement de profiles.yml
       DBT_PROFILES_DIR: /opt/airflow/dbt
+      DUCKDB_PATH: /opt/airflow/warehouse/lineage.duckdb
       # Utilisés par dbt-ol pour envoyer les événements à Marquez
       OPENLINEAGE_URL: http://marquez-api:5000
       OPENLINEAGE_NAMESPACE: projet

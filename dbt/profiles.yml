@@ -3,5 +3,5 @@ lineage_etl:
   outputs:
     dev:
       type: duckdb
-      path: lineage.duckdb
-      threads: 4
+      path: "{{ env_var('DUCKDB_PATH', 'lineage.duckdb') }}"
+      threads: 1

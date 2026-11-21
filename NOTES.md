@@ -316,3 +316,14 @@ docker stats --no-stream                       # RAM utilisée
 - `pipeline_education_sante` n'a pas encore été exécuté.
 - La licence des données data.gov.ma est **à vérifier** avant de rendre le dépôt public.
 - Migration vers Airflow 3 : perspective (l'API REST et l'authentification changent).
+
+
+
+
+
+
+
+### Versions dbt (conteneur Airflow, relevées le 2026-11-21)
+- dbt-core 1.9.4, dbt-duckdb 1.9.4 (fixées dans le Dockerfile)
+- openlineage-dbt 1.55.0 (NON fixée dans le Dockerfile : version installée au moment du build)
+- Python 3.12.9 dans le venv /home/airflow/dbt_venv
