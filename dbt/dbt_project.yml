@@ -12,4 +12,9 @@ clean-targets: ["target", "dbt_packages"]
 
 models:
   lineage_etl:
-    +materialized: view
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: education_primaire_public_2023
+      - name: education_primaire_public_2026
+      - name: education_college_public_2023
+      - name: education_college_public_2026
+      - name: education_qualifiant_public_2023
+      - name: education_qualifiant_public_2026
+      - name: education_prive_2023
+      - name: education_prive_2026
+      - name: sante_hopitaux_2025
+      - name: _provenance
