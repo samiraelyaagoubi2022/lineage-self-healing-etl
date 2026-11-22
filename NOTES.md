@@ -323,7 +323,12 @@ docker stats --no-stream                       # RAM utilisée
 
 
 
-### Versions dbt (conteneur Airflow, relevées le 2026-11-21)
-- dbt-core 1.9.4, dbt-duckdb 1.9.4 (fixées dans le Dockerfile)
-- openlineage-dbt 1.55.0 (NON fixée dans le Dockerfile : version installée au moment du build)
+### Versions fixées (conteneur Airflow, relevées le 2026-11-22)
+- Airflow 2.10.5
+- apache-airflow-providers-openlineage 2.0.0, openpyxl 3.1.5 (fixées dans le Dockerfile)
+- dbt-core 1.9.4, dbt-duckdb 1.9.4, duckdb 1.2.2 (fixées)
+- dbt-adapters 1.16.3, dbt-common 1.27.1 (fixées, dépendances de dbt)
+- openlineage-dbt 1.55.0 (fixée)
 - Python 3.12.9 dans le venv /home/airflow/dbt_venv
+- Démarrage d'Airflow : `rm -f /opt/airflow/airflow-webserver.pid` avant le serveur web
+  (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
