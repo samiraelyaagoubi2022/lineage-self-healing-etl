@@ -317,6 +317,22 @@ docker stats --no-stream                       # RAM utilisée
 - La licence des données data.gov.ma est **à vérifier** avant de rendre le dépôt public.
 - Migration vers Airflow 3 : perspective (l'API REST et l'authentification changent).
 
+## Provenance (J4)
+
+`raw._provenance` contient une ligne par table brute :
+- URL du fichier, empreinte sha256, date de chargement, run Airflow, nombre de lignes ;
+- depuis le catalogue CKAN de data.gov.ma : organisme, licence et date de modification du jeu.
+
+Relevé du 2026-11-23 (9 tables, les quatre colonnes remplies pour chacune) :
+- organisme : MENPS pour les 8 jeux d'éducation, MSPS pour les hôpitaux (titres des organisations sur le portail) ;
+- licence déclarée par le catalogue : Open Data Commons Open Database License (ODbL) pour les 9 jeux.
+
+À faire : confirmer la licence sur la page « Licence » du portail avant de publier le dépôt
+(l'ODbL prévoit une attribution et un partage à l'identique : à vérifier pour un dépôt public).
+
+Si le catalogue ne répond pas, ces champs restent vides et le log de la tâche affiche « ATTENTION » :
+l'ingestion n'échoue pas pour autant.
+
 
 
 
