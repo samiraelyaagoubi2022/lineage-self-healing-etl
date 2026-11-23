@@ -8,7 +8,9 @@ DAG d'ingestion : data.gov.ma (XLSX) -> DuckDB, schema `raw`.
   se font dans dbt (staging).
 - Colonnes ajoutees, prefixees par `_` : _jeu, _version, _source_url, _sha256,
   _charge_le, _run_id, _feuille.
-- Table de tracabilite : raw._provenance (une ligne par table brute).
+- Table de tracabilite : raw._provenance (une ligne par table brute) : URL, empreinte sha256,
+  date de chargement, run Airflow, et, depuis le catalogue CKAN, organisme, licence et date de
+  modification du jeu (vides si le catalogue ne repond pas : l'ingestion n'echoue pas pour cela).
 
 Lancement : interface Airflow -> ingestion_data_gov_ma -> Trigger DAG w/ config.
 Le champ `tables` permet de ne charger que certaines tables (vide = les 9).
@@ -29,6 +31,7 @@ from airflow.models.param import Param
 DB_PATH = "/opt/airflow/warehouse/lineage.duckdb"
 RAW_DIR = "/opt/airflow/data/raw"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+CKAN_API = "https://data.gov.ma/data/api/3/action"
 
 # Source : provenance.md. `table` = nom dans le schema raw (domaine_niveau_statut_annee).
 SOURCES = [
@@ -88,6 +91,27 @@ def _noms_uniques(valeurs):
     return noms
 
 
+def _metadonnees_ckan(jeu):
+    """Organisme, licence et date de modification du jeu, lus dans le catalogue CKAN (package_show).
+
+    En cas d'echec (reseau, jeu introuvable, format inattendu), on renvoie des valeurs vides et on
+    l'ecrit dans le log : la provenance est alors incomplete, mais les donnees sont quand meme chargees.
+    """
+    try:
+        r = requests.get(f"{CKAN_API}/package_show", params={"id": jeu}, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        res = r.json()["result"]
+        return {
+            "organisme": (res.get("organization") or {}).get("title"),
+            "licence": res.get("license_title") or res.get("license_id"),
+            "ckan_modifie_le": res.get("metadata_modified"),
+        }
+    except Exception as e:
+        print(f"ATTENTION {jeu} : metadonnees CKAN indisponibles ({str(e)[:120]}). "
+              "organisme, licence et date CKAN resteront vides.")
+        return {"organisme": None, "licence": None, "ckan_modifie_le": None}
+
+
 @dag(
     dag_id="ingestion_data_gov_ma",
     schedule=None,
@@ -125,6 +149,7 @@ def ingestion_data_gov_ma():
         with open(chemin, "wb") as f:
             f.write(resp.content)
         sha = hashlib.sha256(resp.content).hexdigest()
+        meta = _metadonnees_ckan(source["jeu"])
 
         # 2) Lecture : toutes les feuilles, tout en texte, en-tete detecte
         feuilles = pd.read_excel(chemin, sheet_name=None, header=None, dtype=str, engine="openpyxl")
@@ -163,12 +188,20 @@ def ingestion_data_gov_ma():
             con.execute("""
                 CREATE TABLE IF NOT EXISTS raw."_provenance" (
                     table_brute VARCHAR, jeu VARCHAR, version VARCHAR, url VARCHAR,
-                    sha256 VARCHAR, charge_le VARCHAR, run_id VARCHAR, nb_lignes BIGINT)
+                    sha256 VARCHAR, charge_le VARCHAR, run_id VARCHAR, nb_lignes BIGINT,
+                    organisme VARCHAR, licence VARCHAR, ckan_modifie_le VARCHAR)
             """)
+            # Migration : une base creee avant J4 n'a pas ces trois colonnes.
+            for colonne in ("organisme", "licence", "ckan_modifie_le"):
+                con.execute(f'ALTER TABLE raw."_provenance" ADD COLUMN IF NOT EXISTS {colonne} VARCHAR')
             con.execute('DELETE FROM raw."_provenance" WHERE table_brute = ?', [table])
-            con.execute('INSERT INTO raw."_provenance" VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [table, source["jeu"], source["version"], source["url"],
-                         sha, maintenant, run_id, len(df)])
+            con.execute("""
+                INSERT INTO raw."_provenance"
+                    (table_brute, jeu, version, url, sha256, charge_le, run_id, nb_lignes,
+                     organisme, licence, ckan_modifie_le)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [table, source["jeu"], source["version"], source["url"], sha, maintenant, run_id,
+                  len(df), meta["organisme"], meta["licence"], meta["ckan_modifie_le"]])
         finally:
             con.close()
 
