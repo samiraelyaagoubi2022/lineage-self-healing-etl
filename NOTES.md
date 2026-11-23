@@ -317,12 +317,28 @@ docker stats --no-stream                       # RAM utilisée
 - La licence des données data.gov.ma est **à vérifier** avant de rendre le dépôt public.
 - Migration vers Airflow 3 : perspective (l'API REST et l'authentification changent).
 
+## Provenance (J4)
+
+`raw._provenance` contient une ligne par table brute :
+- URL du fichier, empreinte sha256, date de chargement, run Airflow, nombre de lignes ;
+- depuis le catalogue CKAN de data.gov.ma : organisme, licence et date de modification du jeu.
+
+Relevé du 2026-11-23 (9 tables, les quatre colonnes remplies pour chacune) :
+- organisme : MENPS pour les 8 jeux d'éducation, MSPS pour les hôpitaux (titres des organisations sur le portail) ;
+- licence déclarée par le catalogue : Open Data Commons Open Database License (ODbL) pour les 9 jeux.
+
+À faire : confirmer la licence sur la page « Licence » du portail avant de publier le dépôt
+(l'ODbL prévoit une attribution et un partage à l'identique : à vérifier pour un dépôt public).
+
+Si le catalogue ne répond pas, ces champs restent vides et le log de la tâche affiche « ATTENTION » :
+l'ingestion n'échoue pas pour autant.
 
 
 
 
 
 
+<<<<<<< HEAD
 ### Versions dbt (conteneur Airflow, relevées le 2026-11-21)
 - dbt-core 1.9.4, dbt-duckdb 1.9.4 (fixées dans le Dockerfile)
 - openlineage-dbt 1.55.0 (NON fixée dans le Dockerfile : version installée au moment du build)
@@ -340,3 +356,15 @@ docker stats --no-stream                       # RAM utilisée
   dans Marquez (hypothèse : seeds non traités par openlineage-dbt 1.55.0 dans cette configuration, non vérifiée).
   Conséquence : l'analyse d'impact doit croiser le manifest dbt (`dbt ls --select <nœud>+`) et Marquez.
   Pistes pour plus tard (J8 ou après) : événement OpenLineage complémentaire émis par notre code, ou remplacer le seed par un modèle.
+=======
+
+### Versions fixées (conteneur Airflow, relevées le 2026-11-22)
+- Airflow 2.10.5
+- apache-airflow-providers-openlineage 2.0.0, openpyxl 3.1.5 (fixées dans le Dockerfile)
+- dbt-core 1.9.4, dbt-duckdb 1.9.4, duckdb 1.2.2 (fixées)
+- dbt-adapters 1.16.3, dbt-common 1.27.1 (fixées, dépendances de dbt)
+- openlineage-dbt 1.55.0 (fixée)
+- Python 3.12.9 dans le venv /home/airflow/dbt_venv
+- Démarrage d'Airflow : `rm -f /opt/airflow/airflow-webserver.pid` avant le serveur web
+  (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
+>>>>>>> origin/main
