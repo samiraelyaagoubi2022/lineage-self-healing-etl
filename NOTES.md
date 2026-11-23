@@ -336,27 +336,20 @@ l'ingestion n'échoue pas pour autant.
 
 
 
-
-
-<<<<<<< HEAD
-### Versions dbt (conteneur Airflow, relevées le 2026-11-21)
-- dbt-core 1.9.4, dbt-duckdb 1.9.4 (fixées dans le Dockerfile)
-- openlineage-dbt 1.55.0 (NON fixée dans le Dockerfile : version installée au moment du build)
-- Python 3.12.9 dans le venv /home/airflow/dbt_venv
-
-### Lineage dbt dans Marquez (relevé le 2026-11-21)
-- Datasets : namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.raw.<table>` et `lineage.staging.stg_<table>`.
-- Jobs dbt : namespace `projet`, un job par modèle `dbt-run-lineage_etl.lineage.staging.lineage_etl.<modèle>.build.run`, plus `dbt-run-lineage_etl`.
+### Lineage dbt dans Marquez (relevé le 2026-11-21, mis à jour le 2026-11-23)
+- Datasets : namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.raw.<table>`, `lineage.staging.stg_<table>` et `lineage.marts.<table>`.
+- Jobs dbt : namespace `projet`, un job `.build.run` et un job `.build.test` par modèle (`dbt-run-lineage_etl.lineage.<schéma>.lineage_etl.<modèle>.build.run`), plus `dbt-run-lineage_etl`.
 - Jobs Airflow (`ingestion_data_gov_ma`, `charger_fichier`, `choisir_sources`) : aucun dataset déclaré, donc pas de lien automatique avec les tables raw. À traiter à J8.
-- dbt-ol : 20 événements émis pour 9 modèles.
+- dbt-ol : 20 événements pour 9 modèles (J3) ; 46 événements après J4 (seed et tests inclus).
+- Écart manifest / Marquez (check_manifest_vs_marquez.py, 2026-11-23) : les jobs `agg_etablissements_par_region_2023` et `agg_hopitaux_par_region` n'ont pas `lineage.ref.dim_region` en entrée dans Marquez, alors que le manifest dbt la déclare (`dbt ls --select dim_region+` retourne bien les 2 modèles). Le seed n'a ni dataset ni job dans Marquez (hypothèse : seeds non traités par openlineage-dbt 1.55.0 dans cette configuration, non vérifiée). Conséquence : l'analyse d'impact doit croiser le manifest dbt et Marquez. Pistes pour plus tard : événement OpenLineage complémentaire émis par notre code, ou remplacer le seed par un modèle (non testées).
 
-
-- Confirmé (check_manifest_vs_marquez.py, 2026-11-23) : les jobs `agg_etablissements_par_region_2023` et `agg_hopitaux_par_region`
-  n'ont pas `lineage.ref.dim_region` en entrée dans Marquez, alors que le manifest dbt la déclare. Le seed n'a ni dataset ni job
-  dans Marquez (hypothèse : seeds non traités par openlineage-dbt 1.55.0 dans cette configuration, non vérifiée).
-  Conséquence : l'analyse d'impact doit croiser le manifest dbt (`dbt ls --select <nœud>+`) et Marquez.
-  Pistes pour plus tard (J8 ou après) : événement OpenLineage complémentaire émis par notre code, ou remplacer le seed par un modèle.
-=======
+### Résultats J4 (B, 2026-11-23)
+- dbt-ol build : PASS=40 WARN=7 ERROR=0 SKIP=0 (47 éléments : 1 seed, 11 modèles, 35 tests).
+- 6 avertissements liés à « Casablanca-Settat », absente de dim_region (qui suit les noms de 2023) : 4 tests relationships éducation 2026 (437 + 1 206 + 1 654 + 301 = 3 598 lignes), 1 test hôpitaux (27 lignes), 1 région sans code dans agg_hopitaux_par_region. Cas R2 : dérive silencieuse détectée par un test.
+- 1 avertissement not_null etablissement : 2 établissements sans nom dans primaire 2023 (absent en 2026).
+- Les 4 tests relationships sur les modèles 2023 passent : les noms 2023 correspondent à 100 % au référentiel.
+- Pas de clé naturelle sur les établissements (17 082 lignes, 15 876 noms distincts, 17 069 couples nom/commune distincts, calcul qui ignore les lignes à nom ou commune vide) : pas de test `unique` sur le nom.
+- Décisions proposées, à valider avec A : tests 2023 en error, tests 2026 et hôpitaux en warn ; not_null etablissement en warn (anomalie de la source, non corrigée en staging) ; agg_etablissements_par_region_2023 séparé de la santé, car une jointure sur la région perdrait Casablanca en silence.
 
 ### Versions fixées (conteneur Airflow, relevées le 2026-11-22)
 - Airflow 2.10.5
@@ -367,4 +360,3 @@ l'ingestion n'échoue pas pour autant.
 - Python 3.12.9 dans le venv /home/airflow/dbt_venv
 - Démarrage d'Airflow : `rm -f /opt/airflow/airflow-webserver.pid` avant le serveur web
   (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
->>>>>>> origin/main
