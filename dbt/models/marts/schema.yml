@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: agg_etablissements_par_region_2023
+    columns:
+      - name: region
+        data_tests: [not_null]
+      - name: nb_etablissements
+        data_tests: [not_null]
+  - name: agg_hopitaux_par_region
+    columns:
+      - name: region
+        data_tests: [not_null]
+      - name: region_code
+        data_tests:
+          - not_null:
+              config:
+                severity: warn

@@ -327,3 +327,16 @@ docker stats --no-stream                       # RAM utilisée
 - dbt-core 1.9.4, dbt-duckdb 1.9.4 (fixées dans le Dockerfile)
 - openlineage-dbt 1.55.0 (NON fixée dans le Dockerfile : version installée au moment du build)
 - Python 3.12.9 dans le venv /home/airflow/dbt_venv
+
+### Lineage dbt dans Marquez (relevé le 2026-11-21)
+- Datasets : namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.raw.<table>` et `lineage.staging.stg_<table>`.
+- Jobs dbt : namespace `projet`, un job par modèle `dbt-run-lineage_etl.lineage.staging.lineage_etl.<modèle>.build.run`, plus `dbt-run-lineage_etl`.
+- Jobs Airflow (`ingestion_data_gov_ma`, `charger_fichier`, `choisir_sources`) : aucun dataset déclaré, donc pas de lien automatique avec les tables raw. À traiter à J8.
+- dbt-ol : 20 événements émis pour 9 modèles.
+
+
+- Confirmé (check_manifest_vs_marquez.py, 2026-11-23) : les jobs `agg_etablissements_par_region_2023` et `agg_hopitaux_par_region`
+  n'ont pas `lineage.ref.dim_region` en entrée dans Marquez, alors que le manifest dbt la déclare. Le seed n'a ni dataset ni job
+  dans Marquez (hypothèse : seeds non traités par openlineage-dbt 1.55.0 dans cette configuration, non vérifiée).
+  Conséquence : l'analyse d'impact doit croiser le manifest dbt (`dbt ls --select <nœud>+`) et Marquez.
+  Pistes pour plus tard (J8 ou après) : événement OpenLineage complémentaire émis par notre code, ou remplacer le seed par un modèle.

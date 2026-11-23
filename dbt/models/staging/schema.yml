@@ -1,0 +1,138 @@
+version: 2
+
+models:
+  - name: stg_education_primaire_public_2023
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: error
+  - name: stg_education_primaire_public_2026
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: warn
+  - name: stg_education_college_public_2023
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: error
+  - name: stg_education_college_public_2026
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: warn
+  - name: stg_education_qualifiant_public_2023
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: error
+  - name: stg_education_qualifiant_public_2026
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: warn
+  - name: stg_education_prive_2023
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: error
+  - name: stg_education_prive_2026
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: warn
+  - name: stg_sante_hopitaux_2025
+    columns:
+      - name: etablissement
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region
+              config:
+                severity: warn
