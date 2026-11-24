@@ -360,3 +360,19 @@ l'ingestion n'échoue pas pour autant.
 - Python 3.12.9 dans le venv /home/airflow/dbt_venv
 - Démarrage d'Airflow : `rm -f /opt/airflow/airflow-webserver.pid` avant le serveur web
   (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
+
+
+### Run complet de bout en bout (A, 2026-11-24)
+- `pipeline_education_sante` : plusieurs runs réussis du 22 au 24 novembre. Dernier run : `dbt-ol build` PASS=40 WARN=7 ERROR=0 SKIP=0 TOTAL=47, 46 événements OpenLineage envoyés. Mêmes chiffres que ceux de B.
+- Base DuckDB : `raw` 10 tables, `staging` 9 vues, `marts` 2 tables, `ref` 1 table (seed `dim_region`).
+- Provenance : 9 lignes, organisme, licence et date CKAN renseignés pour chacune.
+- Totaux contrôlés : 17 082 établissements 2023 dans `agg_etablissements_par_region_2023` (égal à la somme des `nb_lignes` du brut), 184 hôpitaux dans `agg_hopitaux_par_region` (égal au brut). `Casablanca-Settat` : 27 hôpitaux sans `region_code` (avertissement attendu).
+- Marquez, namespace `projet` : les jobs `pipeline_education_sante` et `pipeline_education_sante.dbt_build` sont `COMPLETED` : les événements d'Airflow arrivent.
+
+### Événements FAIL dans Marquez (relevé le 2026-11-25 avec `GET /api/v1/events/lineage`)
+Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_test`.
+- 1 : `job_test` (2026-11-18), test manuel du jour 1 (START puis FAIL envoyés à la main). Il reste dans le namespace `projet` et sera renvoyé par toute requête « jobs en échec » : faux positif à exclure ou à supprimer avant le banc de pannes (à décider avec la convention de namespace de J7).
+- 2 : formulaire Airflow mal saisi, `choisir_sources` et le DAG `ingestion_data_gov_ma` (2026-11-19, 19:48). Erreur de saisie, aucun correctif de code.
+- 5 : en-tête du schéma 2026 (`LL_REG`) non reconnu, 4 échecs de `charger_fichier` (2026-11-19, 19:57 à 19:59) et l'échec du DAG qui en découle. Les trois premiers correspondent aux index 1, 3 et 5 vus dans Airflow. Panne **persistante**, corrigée dans le code du DAG.
+- 2 : échecs récents de `charger_fichier` (2026-11-23 10:23 et 2026-11-24 08:38), dans des runs terminés en `success` : tentative en échec, puis relance automatique réussie. Panne **transitoire**. Cause non vérifiée (hypothèse : verrou DuckDB ; le second coïncide avec un `dbt build` lancé à la main pendant le run).
+- Le compteur « 24 heures » de l'interface (1 FAIL) correspond à l'événement du 2026-11-24 08:38.
