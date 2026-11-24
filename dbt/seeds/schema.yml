@@ -1,0 +1,9 @@
+version: 2
+
+seeds:
+  - name: dim_region
+    columns:
+      - name: region_code
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests: [unique, not_null]
