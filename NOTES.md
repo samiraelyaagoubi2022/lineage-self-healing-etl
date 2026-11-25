@@ -360,3 +360,26 @@ l'ingestion n'échoue pas pour autant.
 - Python 3.12.9 dans le venv /home/airflow/dbt_venv
 - Démarrage d'Airflow : `rm -f /opt/airflow/airflow-webserver.pid` avant le serveur web
   (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
+
+
+
+## Contenu d'un échec dans Marquez (J5)
+- Run du job Airflow `dbt_build` : état FAILED, facet `errorMessage` avec le message générique `task_failure` (pas de stackTrace), plus `airflowState` et `airflowDagRun`.
+- Run du modèle dbt (`...stg_education_college_public_2023.build.run`) : état FAILED, facets `dbt_run`, `dbt_version`, `parent`, sans message d'erreur.
+- Le message d'erreur SQL réel (ex. colonne introuvable) n'est PAS dans Marquez. Il se trouve dans le log de la tâche Airflow et dans `warehouse/failures.jsonl` (champ `echecs_dbt`), alimenté par le callback.
+- Conséquence : pour diagnostiquer, partir du run FAILED dans Marquez, puis suivre `log_url` / `failures.jsonl`.
+
+
+## DAG dbt_build : paramètres (J5)
+- `select` est validé par un pattern (`^[A-Za-z0-9_+@,. ]*$`) : une valeur comme `a; ls` est refusée par Airflow avant la création du run (testé en CLI).
+- `echec_volontaire` fait `exit 1` avant dbt : le callback se déclenche, mais Marquez ne reçoit aucun événement dbt, seulement l'échec du job Airflow.
+
+## Fichiers non versionnés (J5)
+- `.env` : retiré de l'index (jamais de secret dans Git). Modèle : `.env.example`.
+- `data/raw/*.xlsx` : retirés de l'index, régénérés par le DAG d'ingestion (source : data.gov.ma). Les anciens commits les contiennent encore (données ouvertes, sans secret).
+- 2 lignes de `primaire_public_2023` ont un `etablissement` vide (Es-semara, Gzenaya Al Janoubia) : conservées, test `not_null` en `warn`.
+
+## Fiches de provenance (J5)
+- Générées par `scripts/gen_provenance.py` à partir de `raw._provenance`, dans `data/provenance/`.
+- Le SHA Git d'une fiche est celui du commit au moment de la génération, pas celui du run d'ingestion. Il précède donc le commit qui ajoute la fiche.
+- Les fiches doivent être régénérées après chaque ingestion (sha256, date de chargement et run_id changent).
