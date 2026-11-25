@@ -377,3 +377,9 @@ l'ingestion n'échoue pas pour autant.
 ## Fichiers non versionnés (J5)
 - `.env` : retiré de l'index (jamais de secret dans Git). Modèle : `.env.example`.
 - `data/raw/*.xlsx` : retirés de l'index, régénérés par le DAG d'ingestion (source : data.gov.ma). Les anciens commits les contiennent encore (données ouvertes, sans secret).
+- 2 lignes de `primaire_public_2023` ont un `etablissement` vide (Es-semara, Gzenaya Al Janoubia) : conservées, test `not_null` en `warn`.
+
+## Fiches de provenance (J5)
+- Générées par `scripts/gen_provenance.py` à partir de `raw._provenance`, dans `data/provenance/`.
+- Le SHA Git d'une fiche est celui du commit au moment de la génération, pas celui du run d'ingestion. Il précède donc le commit qui ajoute la fiche.
+- Les fiches doivent être régénérées après chaque ingestion (sha256, date de chargement et run_id changent).
