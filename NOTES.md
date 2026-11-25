@@ -376,3 +376,35 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - 5 : en-tête du schéma 2026 (`LL_REG`) non reconnu, 4 échecs de `charger_fichier` (2026-11-19, 19:57 à 19:59) et l'échec du DAG qui en découle. Les trois premiers correspondent aux index 1, 3 et 5 vus dans Airflow. Panne **persistante**, corrigée dans le code du DAG.
 - 2 : échecs récents de `charger_fichier` (2026-11-23 10:23 et 2026-11-24 08:38), dans des runs terminés en `success` : tentative en échec, puis relance automatique réussie. Panne **transitoire**. Cause non vérifiée (hypothèse : verrou DuckDB ; le second coïncide avec un `dbt build` lancé à la main pendant le run).
 - Le compteur « 24 heures » de l'interface (1 FAIL) correspond à l'événement du 2026-11-24 08:38.
+
+### J5 — tests qualité et nouveaux modèles dbt (A, 2026-11-25)
+
+**Build sur la base réelle**
+- `dbt build` : PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60 (les 4 tests singuliers J5 sont bien pris en compte).
+- `marts.dim_etablissement_education` : 35 486 lignes (somme exacte des 8 fichiers bruts), 12 régions, 2 versions.
+- `marts.comparaison_versions_par_region` : 48 lignes (12 régions × 4 niveaux, trous inclus).
+- Macro `normalize_region` vérifiée : `relationships_dim_etablissement_education_region` PASS.
+
+**Les 9 warnings (anomalies de données réelles)**
+| Test | Lignes | Cause |
+|---|---|---|
+| not_null primaire_public_2023.etablissement | 2 | 2 établissements sans nom dans le fichier source |
+| relationships college_public_2026.region | 437 | Casablanca-Settat absente de dim_region (2023) |
+| relationships primaire_public_2026.region | 1 206 | idem |
+| relationships prive_2026.region | 1 653 | idem |
+| relationships qualifiant_public_2026.region | 301 | idem |
+| relationships sante_hopitaux_2025.region | 27 | idem |
+| not_null agg_hopitaux_par_region.region_code | 1 | conséquence de Casablanca-Settat |
+| assert_pas_de_doublon_etablissement | 12 | 12 établissements en doublon (même nom + commune + version + niveau) — découverte J5 |
+| not_null dim_etablissement_education.etablissement | 2 | propagation des 2 établissements sans nom |
+
+**Calibration du seuil `assert_ecart_versions_plausible`**
+- Écart maximal observé : 27,7 % (Fès-Meknès / privé). Aucun dépassement au-delà de 30 %.
+- Seuil par défaut `var('seuil_ecart_pct', 30)` conservé.
+
+**Expérience des 3 injections (sur copie `essai.duckdb`, jamais la vraie base)**
+- Injection 1 : suppression d'une ligne dans `raw.education_prive_2026` → `assert_staging_conserve_les_lignes` FAIL 1.
+- Injection 2 : `_sha256` modifié dans `raw.education_college_public_2023` → `assert_empreinte_staging_egale_provenance` FAIL 1.
+- Injection 3 : `REGION` mis en majuscules dans `raw.education_qualifiant_public_2023` → `relationships` (B) FAIL 10.
+- Résultat obtenu : PASS=36 WARN=7 ERROR=3 SKIP=14 TOTAL=60.
+- Les 14 SKIP sont le périmètre impacté : `dim_etablissement_education`, `agg_etablissements_par_region_2023`, `comparaison_versions_par_region` et leurs tests ne sont pas reconstruits.
