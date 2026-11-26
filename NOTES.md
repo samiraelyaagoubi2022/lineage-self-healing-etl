@@ -488,4 +488,18 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   sur raw._provenance). Entrées : 1 par stg_*, 8 pour dim_etablissement_education, 4 pour
   agg_etablissements_par_region_2023. dim_region (seed) n'apparaît pas en entrée des marts qui
   le joignent : limite déjà connue.
-  
+  - Échec d'ingestion provoqué (URL volontairement fausse sur sante_hopitaux_2025, 2026-11-27) :
+  la réponse n'était pas un XLSX, la tâche est passée en failed (AirflowFailException, sans nouvelle
+  tentative). Ce que contient Marquez :
+  - notre job `ingestion_data_gov_ma.charger_fichier.sante_hopitaux_2025` : run FAILED, un seul facet
+    `errorMessage` (« AirflowFailException: sante_hopitaux_2025 : la reponse n'est pas un fichier
+    XLSX (page HTML ?) ») ; pas de lien vers le DAG (Parent job N/A) ;
+  - job du provider `ingestion_data_gov_ma.charger_fichier` : FAILED, facets `errorMessage` (même
+    message), `parent` (DAG et run Airflow), `airflow_mappedTask` ;
+  - job du DAG `ingestion_data_gov_ma` : FAILED, `errorMessage` = « task_failure », `airflowState`
+    avec l'état de chaque tâche.
+  - Le nom de la table figure dans le nom du job et dans le message : la table en cause se retrouve
+    sans autre source. Le graphe garde les liens vers l'aval dbt : Marquez ne signale pas
+    lui-même les modèles impactés.
+  - L'échec arrive avant l'écriture dans DuckDB (structure du code). Run normal relancé ensuite :
+    9/9 tables correctes.
