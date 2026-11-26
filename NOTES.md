@@ -383,3 +383,13 @@ l'ingestion n'échoue pas pour autant.
 - Générées par `scripts/gen_provenance.py` à partir de `raw._provenance`, dans `data/provenance/`.
 - Le SHA Git d'une fiche est celui du commit au moment de la génération, pas celui du run d'ingestion. Il précède donc le commit qui ajoute la fiche.
 - Les fiches doivent être régénérées après chaque ingestion (sha256, date de chargement et run_id changent).
+
+## Stabilisation du DAG dbt_build (J6)
+- Pool Airflow `duckdb` (1 slot) utilisé par `dbt_build` et par `charger_fichier` (ingestion) : ils ne s'exécutent jamais en même temps (verrou DuckDB).
+- Le pool n'est pas dans Git. Sur une installation neuve : `airflow pools set duckdb 1 "Verrou DuckDB"`.
+- `max_active_runs=1`, timeout de tâche 15 min, timeout de run 20 min, `set -euo pipefail`.
+- `select` validé par pattern. `echec_volontaire` fait `exit 1` avant dbt : le callback se déclenche, mais Marquez ne reçoit aucun événement dbt.
+
+## Secrets (J6)
+- Aucun secret réel dans le dépôt. `docker-compose.yml` ne contient que des identifiants de développement local (admin/admin, mots de passe Postgres par défaut, clé Flask locale), à ne jamais réutiliser hors machine de dev.
+- `.env` : retiré de l'index (jamais de secret dans Git). Modèle : `.env.example`.
