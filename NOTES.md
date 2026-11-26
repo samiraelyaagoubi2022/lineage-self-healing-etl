@@ -449,17 +449,48 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
   - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
+### J7 - OpenLineage Airflow vers Marquez (A, 2026-11-27)
 
-### ✅ J7 - OpenLineage vers Marquez (Côté A)
+**Première méthode, abandonnée : `outlets=[Dataset(...)]`**
+- `@task(outlets=[Dataset("duckdb:///...#lineage.raw.{{ source.table }}")])`.
+- `outlets` n'est pas templaté dans Airflow 2.10 : l'interface Airflow affichait le nom littéral
+  `{{ source.table }}`, identique pour les 9 tâches. L'URI d'un Dataset Airflow n'est pas non plus
+  découpée en namespace / nom comme le fait dbt.
+- Constat : `inventaire_marquez.py` donnait « 0 table déclarée » pour tous les jobs Airflow.
 
-**Ce que j'ai fait :**
-J'ai configuré le DAG d'ingestion (`ingestion_data_gov_ma.py`) pour qu'il déclare les tables qu'il produit à Marquez. J'ai ajouté un `outlets=[Dataset(...)]` avec le namespace unifié pour faire le lien avec dbt.
+**Méthode retenue : émission OpenLineage manuelle dans la tâche**
+- `charger_fichier` envoie `START`, puis `COMPLETE` ou `FAIL` (facet `errorMessage`) à Marquez avec
+  `openlineage-python` (`OpenLineageClient.from_environment()`, variable `OPENLINEAGE_URL`).
+- Job : `ingestion_data_gov_ma.charger_fichier.<table>`, namespace `projet`.
+- Sortie : namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb`, nom `lineage.raw.<table>`
+  (identiques à ceux de dbt).
+- Un échec d'envoi ne casse pas l'ingestion : le log affiche « ATTENTION ».
+- Les jobs créés par le provider Airflow (`charger_fichier`, `choisir_sources`, DAG) existent toujours
+  et déclarent 0 table : c'est normal.
 
-**Les résultats obtenus :**
-1. **Déclaration des tables :** Le DAG Airflow s'exécute avec succès. La boîte "Dataset" apparaît bien dans l'interface Airflow (voir capture).
-2. **Graphe unifié dans Marquez :** Les captures d'écran de l'interface Marquez prouvent que la table brute produite par Airflow est désormais reliée visuellement aux jobs dbt qui la transforment. Le graphe est continu de bout en bout (pas de coupure).
-3. **Inventaire :** Le script `inventaire_marquez.py` confirme la réception des événements (centaines de `START`/`COMPLETE`). *Note : le script affiche `0` pour les tables d'Airflow car il cumule l'historique des anciens runs, mais l'interface web prouve le lien visuel.*
+**Résultats (run complet sur les 9 tables, 2026-11-26/27)**
+- `scripts/check_ingestion_lineage.py` : 9/9 tables correctes (sortie déclarée, dernier run COMPLETED,
+  lien vers `stg_<table>`).
+- `scripts/inventaire_marquez.py` : 9 jobs `charger_fichier.<table>`, START 1 / COMPLETE 1, 2 tables
+  déclarées chacun (`sante_hopitaux_2025` : 2 runs, testée seule avant). dbt : 23 tables déclarées.
+- Marquez : graphe continu job d'ingestion, `lineage.raw.<table>`, job dbt, `lineage.staging`,
+  jobs dbt, `lineage.marts` (capture jointe).
+- Correction de l'inventaire : `origine()` classait les jobs dbt `lineage.*` et `test.*` dans Airflow.
+- Limites : « Parent job » = N/A (pas de ParentRunFacet) ; le chemin d'échec (FAIL) du nouveau code
+  n'a pas encore été déclenché.
 
-**Convention de namespace écrite et appliquée :**
-- **Jobs (Airflow et dbt) :** Namespace `projet` (dans `docker-compose.yml`).
-- **Datasets :** Namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb` (dans le DAG).
+**Convention de namespace**
+- Jobs (Airflow et dbt) : `projet` (docker-compose.yml, `OPENLINEAGE_NAMESPACE`).
+- Datasets : `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.<schéma>.<table>`.
+
+**À vérifier par B (lignes de la checklist J7)**
+- « Côté dbt : événements reçus dans Marquez » : l'inventaire corrigé donne dbt COMPLETE 417,
+  23 tables déclarées ; NOTES.md relève 46 événements en J4 et 64 en J5. B confirme ces chiffres
+  avec `inventaire_marquez.py`.
+- « Contenu d'un échec dans Marquez noté » : éléments déjà relevés, à compléter par B.
+  - Échec volontaire de `dbt_build` (J5) : jobs `dbt_build` et `dbt_build.dbt_build` en FAILED,
+    facets `errorMessage`, `airflowState`, `airflowDagRun`, `parent` (`check_failures_marquez.py`).
+  - Cet échec n'émet aucun événement dbt : le détail dbt est dans `warehouse/failures.jsonl`,
+    pas dans Marquez.
+  - Relevé du 2026-11-25 : 10 événements FAIL, dont `job_test` (faux positif du jour 1).
+  - Manque : décrire quels champs de Marquez permettent de retrouver la cause d'un échec.

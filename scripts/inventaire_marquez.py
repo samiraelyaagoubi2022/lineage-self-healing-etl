@@ -20,12 +20,11 @@ def get(chemin):
 
 
 def origine(nom):
-    if nom.startswith("dbt-run"):
+    if nom.startswith(("dbt-run", "lineage.", "test.")):
         return "dbt"
     if nom == "job_test":
         return "test manuel (jour 1)"
     return "airflow"
-
 
 print("== Namespaces")
 for ns in get("/namespaces")["namespaces"]:
