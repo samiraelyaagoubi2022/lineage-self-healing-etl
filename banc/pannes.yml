@@ -67,7 +67,7 @@ pannes:
     noeuds_impactes: *aval_2023
     decision_attendue: reparer
     reparation_attendue: {regle: cast, colonne: COMMUNE, type: VARCHAR}
-     correction_apres_run: "Injection d'origine impossible : DuckDB refuse STRING -> BLOB sur du texte accentué (rc=-1 côté script, dbt n'a pas tourné). injection_corrigee (USING encode) validée au run du 26/11 : noeud et erreur conformes (No function matches ... trim(BLOB))."
+    correction_apres_run: "Injection d'origine impossible : DuckDB refuse STRING -> BLOB sur du texte accentué (rc=-1 côté script, dbt n'a pas tourné). injection_corrigee (USING encode) validée au run du 26/11 : noeud et erreur conformes."
     injection_corrigee:
       type: sql
       sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB USING encode("COMMUNE")'
