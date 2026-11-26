@@ -449,3 +449,8 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
   - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
+
+## Banc de pannes J9 (B)
+- `banc/pannes.yml` (10 pannes, vérité terrain) commité en `d2133a5` le 2026-11-26, avant toute exécution ni injection.
+- Répartition prévue : 6 à réparer (P01 à P06), 3 à escalader (P07, P08, P10), 1 à ne pas réparer (P09).
+- Les erreurs attendues de P04 et P05 (BLOB) et les nœuds impactés sont des hypothèses, non vérifiées au moment du commit.
