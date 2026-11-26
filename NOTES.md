@@ -454,3 +454,13 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - `banc/pannes.yml` (10 pannes, vérité terrain) commité en `d2133a5` le 2026-11-26, avant toute exécution ni injection.
 - Répartition prévue : 6 à réparer (P01 à P06), 3 à escalader (P07, P08, P10), 1 à ne pas réparer (P09).
 - Les erreurs attendues de P04 et P05 (BLOB) et les nœuds impactés sont des hypothèses, non vérifiées au moment du commit.
+## Résultats du banc de pannes (J9, B, 2026-11-26)
+- Prédictions : banc/pannes.yml commité en d2133a5 avant toute exécution. Résultats : f2c7f25.
+- Nœud en échec conforme à la prédiction pour 10 pannes sur 10.
+- Message d'erreur reconnu automatiquement pour 7 pannes sur 10. P01, P03 et P07 : le message DuckDB diffère de la prédiction (alias du staging masquant la colonne), ce qui est une limite de ma prédiction et pas de la panne.
+- P01 (renommage) et P07 (suppression) donnent le même message : seul le schéma du brut les distingue.
+- P08 et P09 : un test singulier en échec ne bloque pas l'aval (propagation silencieuse). P10 : un test relationships bloque l'aval.
+- P04 et P05 : injection BLOB d'origine impossible, remplacée par USING encode (validée).
+- P06 : dbt meurt sans run_results.json (rc=2), erreur uniquement dans stdout.
+- P10 : 1414 lignes en échec au lieu de ~10 prédites.
+- Limites : le script ne teste pas encore le réparateur. La colonne "décision attendue" est recopiée, pas évaluée.
