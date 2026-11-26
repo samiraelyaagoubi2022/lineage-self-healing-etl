@@ -21,3 +21,6 @@ dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
 empreinte_run*.txt
+__pycache__/
+*.pyc
+*.pyo
