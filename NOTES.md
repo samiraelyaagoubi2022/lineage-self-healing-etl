@@ -362,36 +362,90 @@ l'ingestion n'échoue pas pour autant.
   (évite un arrêt du conteneur dû à un fichier pid périmé après un arrêt brutal)
 
 
+### Run complet de bout en bout (A, 2026-11-24)
+- `pipeline_education_sante` : plusieurs runs réussis du 22 au 24 novembre. Dernier run : `dbt-ol build` PASS=40 WARN=7 ERROR=0 SKIP=0 TOTAL=47, 46 événements OpenLineage envoyés. Mêmes chiffres que ceux de B.
+- Base DuckDB : `raw` 10 tables, `staging` 9 vues, `marts` 2 tables, `ref` 1 table (seed `dim_region`).
+- Provenance : 9 lignes, organisme, licence et date CKAN renseignés pour chacune.
+- Totaux contrôlés : 17 082 établissements 2023 dans `agg_etablissements_par_region_2023` (égal à la somme des `nb_lignes` du brut), 184 hôpitaux dans `agg_hopitaux_par_region` (égal au brut). `Casablanca-Settat` : 27 hôpitaux sans `region_code` (avertissement attendu).
+- Marquez, namespace `projet` : les jobs `pipeline_education_sante` et `pipeline_education_sante.dbt_build` sont `COMPLETED` : les événements d'Airflow arrivent.
 
-## Contenu d'un échec dans Marquez (J5)
-- Run du job Airflow `dbt_build` : état FAILED, facet `errorMessage` avec le message générique `task_failure` (pas de stackTrace), plus `airflowState` et `airflowDagRun`.
-- Run du modèle dbt (`...stg_education_college_public_2023.build.run`) : état FAILED, facets `dbt_run`, `dbt_version`, `parent`, sans message d'erreur.
-- Le message d'erreur SQL réel (ex. colonne introuvable) n'est PAS dans Marquez. Il se trouve dans le log de la tâche Airflow et dans `warehouse/failures.jsonl` (champ `echecs_dbt`), alimenté par le callback.
-- Conséquence : pour diagnostiquer, partir du run FAILED dans Marquez, puis suivre `log_url` / `failures.jsonl`.
+### Événements FAIL dans Marquez (relevé le 2026-11-25 avec `GET /api/v1/events/lineage`)
+Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_test`.
+- 1 : `job_test` (2026-11-18), test manuel du jour 1 (START puis FAIL envoyés à la main). Il reste dans le namespace `projet` et sera renvoyé par toute requête « jobs en échec » : faux positif à exclure ou à supprimer avant le banc de pannes (à décider avec la convention de namespace de J7).
+- 2 : formulaire Airflow mal saisi, `choisir_sources` et le DAG `ingestion_data_gov_ma` (2026-11-19, 19:48). Erreur de saisie, aucun correctif de code.
+- 5 : en-tête du schéma 2026 (`LL_REG`) non reconnu, 4 échecs de `charger_fichier` (2026-11-19, 19:57 à 19:59) et l'échec du DAG qui en découle. Les trois premiers correspondent aux index 1, 3 et 5 vus dans Airflow. Panne **persistante**, corrigée dans le code du DAG.
+- 2 : échecs récents de `charger_fichier` (2026-11-23 10:23 et 2026-11-24 08:38), dans des runs terminés en `success` : tentative en échec, puis relance automatique réussie. Panne **transitoire**. Cause non vérifiée (hypothèse : verrou DuckDB ; le second coïncide avec un `dbt build` lancé à la main pendant le run).
+- Le compteur « 24 heures » de l'interface (1 FAIL) correspond à l'événement du 2026-11-24 08:38.
 
+### J5 — tests qualité et nouveaux modèles dbt (A, 2026-11-25)
 
-## DAG dbt_build : paramètres (J5)
-- `select` est validé par un pattern (`^[A-Za-z0-9_+@,. ]*$`) : une valeur comme `a; ls` est refusée par Airflow avant la création du run (testé en CLI).
-- `echec_volontaire` fait `exit 1` avant dbt : le callback se déclenche, mais Marquez ne reçoit aucun événement dbt, seulement l'échec du job Airflow.
+**Build sur la base réelle**
+- `dbt build` : PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60 (les 4 tests singuliers J5 sont bien pris en compte).
+- `marts.dim_etablissement_education` : 35 486 lignes (somme exacte des 8 fichiers bruts), 12 régions, 2 versions.
+- `marts.comparaison_versions_par_region` : 48 lignes (12 régions × 4 niveaux, trous inclus).
+- Macro `normalize_region` vérifiée : `relationships_dim_etablissement_education_region` PASS.
 
-## Fichiers non versionnés (J5)
-- `.env` : retiré de l'index (jamais de secret dans Git). Modèle : `.env.example`.
-- `data/raw/*.xlsx` : retirés de l'index, régénérés par le DAG d'ingestion (source : data.gov.ma). Les anciens commits les contiennent encore (données ouvertes, sans secret).
-- 2 lignes de `primaire_public_2023` ont un `etablissement` vide (Es-semara, Gzenaya Al Janoubia) : conservées, test `not_null` en `warn`.
+**Les 9 warnings (anomalies de données réelles)**
+| Test | Lignes | Cause |
+|---|---|---|
+| not_null primaire_public_2023.etablissement | 2 | 2 établissements sans nom dans le fichier source |
+| relationships college_public_2026.region | 437 | Casablanca-Settat absente de dim_region (2023) |
+| relationships primaire_public_2026.region | 1 206 | idem |
+| relationships prive_2026.region | 1 653 | idem |
+| relationships qualifiant_public_2026.region | 301 | idem |
+| relationships sante_hopitaux_2025.region | 27 | idem |
+| not_null agg_hopitaux_par_region.region_code | 1 | conséquence de Casablanca-Settat |
+| assert_pas_de_doublon_etablissement | 12 | 12 établissements en doublon (même nom + commune + version + niveau) — découverte J5 |
+| not_null dim_etablissement_education.etablissement | 2 | propagation des 2 établissements sans nom |
 
-## Fiches de provenance (J5)
-- Générées par `scripts/gen_provenance.py` à partir de `raw._provenance`, dans `data/provenance/`.
-- Le SHA Git d'une fiche est celui du commit au moment de la génération, pas celui du run d'ingestion. Il précède donc le commit qui ajoute la fiche.
-- Les fiches doivent être régénérées après chaque ingestion (sha256, date de chargement et run_id changent).
+**Calibration du seuil `assert_ecart_versions_plausible`**
+- Écart maximal observé : 27,7 % (Fès-Meknès / privé). Aucun dépassement au-delà de 30 %.
+- Seuil par défaut `var('seuil_ecart_pct', 30)` conservé.
 
-## Stabilisation du DAG dbt_build (J6)
-- Pool Airflow `duckdb` (1 slot) utilisé par `dbt_build` et par `charger_fichier` (ingestion) : ils ne s'exécutent jamais en même temps (verrou DuckDB).
-- Le pool n'est pas dans Git. Sur une installation neuve : `airflow pools set duckdb 1 "Verrou DuckDB"`.
-- `max_active_runs=1`, timeout de tâche 15 min, timeout de run 20 min, `set -euo pipefail`.
-- `select` validé par pattern. `echec_volontaire` fait `exit 1` avant dbt : le callback se déclenche, mais Marquez ne reçoit aucun événement dbt.
+**Expérience des 3 injections (sur copie `essai.duckdb`, jamais la vraie base)**
+- Injection 1 : suppression d'une ligne dans `raw.education_prive_2026` → `assert_staging_conserve_les_lignes` FAIL 1.
+- Injection 2 : `_sha256` modifié dans `raw.education_college_public_2023` → `assert_empreinte_staging_egale_provenance` FAIL 1.
+- Injection 3 : `REGION` mis en majuscules dans `raw.education_qualifiant_public_2023` → `relationships` (B) FAIL 10.
+- Résultat obtenu : PASS=36 WARN=7 ERROR=3 SKIP=14 TOTAL=60.
+- Les 14 SKIP sont le périmètre impacté : `dim_etablissement_education`, `agg_etablissements_par_region_2023`, `comparaison_versions_par_region` et leurs tests ne sont pas reconstruits.
 
+### J5 - Vérification du travail de B sur mon PC (A, 2026-11-26)
+- DAG `dbt_build` importé sans erreur (`dags list-import-errors` = No data found).
+- Run normal (CLI) : PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60, **64 événements OpenLineage**.
+  - Note : 64 événements contre 46 en J4, car la PR #7 de B a ajouté 2 modèles marts et des tests singuliers.
+- Échec volontaire (`--conf '{\"echec_volontaire\": true}'`) : tâche en échec, callback déclenché.
+- `warehouse/failures.jsonl` contient la ligne de l'échec. `run_results` marqué "périmé (écrit avant cette tâche)" : le callback distingue bien un échec Airflow pur d'un échec dbt (comportement correct).
+- `scripts/check_failures_marquez.py` : job `dbt_build` + job `dbt_build.dbt_build` en FAILED, facets `errorMessage`, `airflowState`, `airflowDagRun`, `parent` présents.
+- ⚠️ Bug UI : le champ `select` vide bloque le bouton Trigger (« Veuillez renseigner ce champ »). Contournement : CLI.
+- ⚠️ Bug CLI PowerShell : `--conf '{"echec_volontaire": true}'` échoue (`JSONDecodeError`) car PowerShell mange les guillemets doubles. Contournement : `--conf '{\"echec_volontaire\": true}'`.
+- ⚠️ `scripts/marquez_erreur.py` a des run_id en dur (ceux du PC de B), ne rejoue pas chez moi (404).
 
+### J6-1 - Pipeline rejoué 3 fois sans erreur (A, 2026-11-26)
+- 3 runs de `pipeline_education_sante` déclenchés manuellement :
+  - run 1 : manual__2026-11-25T23:43:42 → success
+  - run 2 : manual__2026-11-25T23:55:43 → success
+  - run 3 : manual__2026-11-26T00:00:14 → success
+- Empreintes (`empreinte_base.py`) prises **après la fin** de chaque run.
+- Comparaison (`Compare-Object`) entre run 1 et run 2 : aucune différence.
+- Comparaison entre run 2 et run 3 : aucune différence.
+- **Conclusion : le pipeline est idempotent** — rejouer 3 fois ne change aucune donnée (raw, staging, marts, ref).
+- Les colonnes `_charge_le` et `_run_id` sont exclues de l'empreinte (elles changent par construction).
 
-## Secrets (J6)
-- Aucun secret réel dans le dépôt. `docker-compose.yml` ne contient que des identifiants de développement local (admin/admin, mots de passe Postgres par défaut, clé Flask locale), à ne jamais réutiliser hors machine de dev.
-- `.env` : retiré de l'index. La version commitée en J3 était vide. Modèle : `.env.example`.
+### J6 - Pipeline stable (A, 2026-11-26)
+
+**J6-1 : Pipeline rejoué 3 fois sans erreur**
+- 3 runs de `pipeline_education_sante` (23:43, 23:55, 00:00) → tous en `success`.
+- Empreintes (`empreinte_base.py`) prises **après la fin** de chaque run.
+- `Compare-Object` entre les 3 fichiers : aucune différence.
+- Conclusion : **pipeline idempotent** (raw, staging, marts, ref).
+
+**J6-2 : dbt docs generate + tests de qualité**
+- `dbt docs generate` : `catalog.json` et `manifest.json` générés.
+- `dbt build` frais : `PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60`.
+- `resume_tests_dbt.py` : **46 tests, 37 pass, 9 warn, 0 fail, 0 error**.
+- Les 9 WARN correspondent aux dérives connues et documentées :
+  - 5 dérives `Casablanca-Settat` (éducation 2026 + hôpitaux 2025) : 437+1206+1654+301+27 = 3 625 lignes.
+  - 1 `region_code` NULL dans `agg_hopitaux_par_region` (Casablanca).
+  - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
+  - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
+- ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
