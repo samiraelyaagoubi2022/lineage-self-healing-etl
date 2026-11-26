@@ -134,7 +134,7 @@ def ingestion_data_gov_ma():
         return choix
 
     # Un seul fichier a la fois : DuckDB n'a qu'un ecrivain.
-    @task(max_active_tis_per_dag=1)
+    @task(max_active_tis_per_dag=1, pool="duckdb")
     def charger_fichier(source, **context):
         table = source["table"]
         run_id = context["run_id"]
