@@ -483,14 +483,9 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - Jobs (Airflow et dbt) : `projet` (docker-compose.yml, `OPENLINEAGE_NAMESPACE`).
 - Datasets : `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.<schéma>.<table>`.
 
-**À vérifier par B (lignes de la checklist J7)**
-- « Côté dbt : événements reçus dans Marquez » : l'inventaire corrigé donne dbt COMPLETE 417,
-  23 tables déclarées ; NOTES.md relève 46 événements en J4 et 64 en J5. B confirme ces chiffres
-  avec `inventaire_marquez.py`.
-- « Contenu d'un échec dans Marquez noté » : éléments déjà relevés, à compléter par B.
-  - Échec volontaire de `dbt_build` (J5) : jobs `dbt_build` et `dbt_build.dbt_build` en FAILED,
-    facets `errorMessage`, `airflowState`, `airflowDagRun`, `parent` (`check_failures_marquez.py`).
-  - Cet échec n'émet aucun événement dbt : le détail dbt est dans `warehouse/failures.jsonl`,
-    pas dans Marquez.
-  - Relevé du 2026-11-25 : 10 événements FAIL, dont `job_test` (faux positif du jour 1).
-  - Manque : décrire quels champs de Marquez permettent de retrouver la cause d'un échec.
+- Côté dbt (scripts/check_dbt_marquez.py, 2026-11-27) : 13 modèles du manifest, 13 jobs `.build.run`
+  dans Marquez, tous COMPLETED, aucun modèle absent ; 14 jobs `.build.test` (13 modèles + le test
+  sur raw._provenance). Entrées : 1 par stg_*, 8 pour dim_etablissement_education, 4 pour
+  agg_etablissements_par_region_2023. dim_region (seed) n'apparaît pas en entrée des marts qui
+  le joignent : limite déjà connue.
+  
