@@ -1,0 +1,102 @@
+[
+ {
+  "id": "P01",
+  "cause_attendue": "colonne_renommee",
+  "cause_observee": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "alias",
+  "regle_appliquee": "alias",
+  "tentatives": 2
+ },
+ {
+  "id": "P02",
+  "cause_attendue": "colonne_renommee",
+  "cause_observee": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "alias",
+  "regle_appliquee": "alias",
+  "tentatives": 2
+ },
+ {
+  "id": "P03",
+  "cause_attendue": "colonne_renommee",
+  "cause_observee": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "alias",
+  "regle_appliquee": "alias",
+  "tentatives": 2
+ },
+ {
+  "id": "P04",
+  "cause_attendue": "type_modifie",
+  "cause_observee": "type_modifie",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "cast",
+  "regle_appliquee": "cast",
+  "tentatives": 2
+ },
+ {
+  "id": "P05",
+  "cause_attendue": "type_modifie",
+  "cause_observee": "type_modifie",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "cast",
+  "regle_appliquee": "cast",
+  "tentatives": 2
+ },
+ {
+  "id": "P06",
+  "cause_attendue": "verrou_transitoire",
+  "cause_observee": "verrou_transitoire",
+  "decision_attendue": "reparer",
+  "decision_observee": "reparer",
+  "regle_attendue": "retry",
+  "regle_appliquee": "retry",
+  "tentatives": 2
+ },
+ {
+  "id": "P07",
+  "cause_attendue": "colonne_supprimee",
+  "cause_observee": "colonne_supprimee",
+  "decision_attendue": "escalader",
+  "decision_observee": "escalader",
+  "regle_attendue": null,
+  "regle_appliquee": null,
+  "tentatives": 1
+ },
+ {
+  "id": "P08",
+  "cause_attendue": "lignes_perdues",
+  "cause_observee": "lignes_perdues",
+  "decision_attendue": "escalader",
+  "decision_observee": "escalader",
+  "regle_attendue": null,
+  "regle_appliquee": null,
+  "tentatives": 1
+ },
+ {
+  "id": "P09",
+  "cause_attendue": "empreinte_incoherente",
+  "cause_observee": "empreinte_incoherente",
+  "decision_attendue": "ne_pas_reparer",
+  "decision_observee": "ne_pas_reparer",
+  "regle_attendue": null,
+  "regle_appliquee": null,
+  "tentatives": 1
+ },
+ {
+  "id": "P10",
+  "cause_attendue": "valeurs_derivees",
+  "cause_observee": "valeurs_derivees",
+  "decision_attendue": "escalader",
+  "decision_observee": "escalader",
+  "regle_attendue": null,
+  "regle_appliquee": null,
+  "tentatives": 1
+ }
+]
