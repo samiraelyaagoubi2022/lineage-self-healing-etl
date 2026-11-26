@@ -36,8 +36,9 @@ with DAG(
             False, type="boolean",
             description="Provoque un échec pour tester le callback",
         ),
-        "select": Param(
-            "", type="string",
+                "select": Param(
+            None,
+            type=["null", "string"],
             pattern=r"^[A-Za-z0-9_+@,. ]*$",
             description="Sélection dbt facultative, ex. stg_sante_hopitaux_2025+",
         ),
