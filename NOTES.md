@@ -449,3 +449,17 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
   - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
+
+### ✅ J7 - OpenLineage vers Marquez (Côté A)
+
+**Ce que j'ai fait :**
+J'ai configuré le DAG d'ingestion (`ingestion_data_gov_ma.py`) pour qu'il déclare les tables qu'il produit à Marquez. J'ai ajouté un `outlets=[Dataset(...)]` avec le namespace unifié pour faire le lien avec dbt.
+
+**Les résultats obtenus :**
+1. **Déclaration des tables :** Le DAG Airflow s'exécute avec succès. La boîte "Dataset" apparaît bien dans l'interface Airflow (voir capture).
+2. **Graphe unifié dans Marquez :** Les captures d'écran de l'interface Marquez prouvent que la table brute produite par Airflow est désormais reliée visuellement aux jobs dbt qui la transforment. Le graphe est continu de bout en bout (pas de coupure).
+3. **Inventaire :** Le script `inventaire_marquez.py` confirme la réception des événements (centaines de `START`/`COMPLETE`). *Note : le script affiche `0` pour les tables d'Airflow car il cumule l'historique des anciens runs, mais l'interface web prouve le lien visuel.*
+
+**Convention de namespace écrite et appliquée :**
+- **Jobs (Airflow et dbt) :** Namespace `projet` (dans `docker-compose.yml`).
+- **Datasets :** Namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb` (dans le DAG).

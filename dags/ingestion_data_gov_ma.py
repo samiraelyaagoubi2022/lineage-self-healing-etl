@@ -11,10 +11,12 @@ DAG d'ingestion : data.gov.ma (XLSX) -> DuckDB, schema `raw`.
 - Table de tracabilite : raw._provenance (une ligne par table brute) : URL, empreinte sha256,
   date de chargement, run Airflow, et, depuis le catalogue CKAN, organisme, licence et date de
   modification du jeu (vides si le catalogue ne repond pas : l'ingestion n'echoue pas pour cela).
+- J7 : Ajout des outlets pour déclarer les Datasets dans Marquez.
 
 Lancement : interface Airflow -> ingestion_data_gov_ma -> Trigger DAG w/ config.
 Le champ `tables` permet de ne charger que certaines tables (vide = les 9).
 """
+from airflow.datasets import Dataset
 import hashlib
 import os
 import unicodedata
@@ -134,7 +136,15 @@ def ingestion_data_gov_ma():
         return choix
 
     # Un seul fichier a la fois : DuckDB n'a qu'un ecrivain.
-    @task(max_active_tis_per_dag=1, pool="duckdb")
+    # L'outlet déclare la table produite auprès de Marquez (OpenLineage).
+    @task(
+        max_active_tis_per_dag=1, 
+        pool="duckdb",
+        # On utilise le namespace EXACT que dbt génère
+        outlets=[Dataset(
+            "duckdb:///opt/airflow/warehouse/lineage.duckdb#lineage.raw.{{ source.table }}"
+        )]
+    )
     def charger_fichier(source, **context):
         table = source["table"]
         run_id = context["run_id"]

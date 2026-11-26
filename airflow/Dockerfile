@@ -9,6 +9,7 @@ RUN python -m venv /home/airflow/dbt_venv \
     && /home/airflow/dbt_venv/bin/pip install --no-cache-dir \
     dbt-core==1.9.4 dbt-duckdb==1.9.4 dbt-adapters==1.16.3 dbt-common==1.27.1 \
     duckdb==1.2.2 openlineage-dbt==1.55.0
+RUN pip install apache-airflow-providers-openlineage
 
 # Dossier de l'entrepot DuckDB
 RUN mkdir -p /opt/airflow/warehouse
