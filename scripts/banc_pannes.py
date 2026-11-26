@@ -54,7 +54,8 @@ def lire_resultats(tp):
 def executer(panne):
     pid = panne["id"]
     copier_base()
-    inj = panne["injection"]
+    # injection_corrigee (ajoutée après run) prime sur l'injection d'origine
+    inj = panne.get("injection_corrigee", panne["injection"])
     locker = None
     if inj["type"] == "sql":
         con = duckdb.connect(ESSAI)

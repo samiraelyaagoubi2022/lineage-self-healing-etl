@@ -1,4 +1,6 @@
-# Banc de pannes J9 (B). Vérité terrain écrite AVANT toute exécution.
+# Banc de pannes J9 (B). Vérité terrain écrite AVANT toute exécution (commit d2133a5).
+# Les champs correction_apres_run / injection_corrigee ont été ajoutés APRÈS les runs ;
+# les prédictions d'origine ne sont pas modifiées.
 # Chaque injection s'applique sur une COPIE de warehouse/lineage.duckdb, jamais sur la vraie base.
 version: 1
 base_source: warehouse/lineage.duckdb
@@ -22,8 +24,8 @@ pannes:
     erreur_attendue: 'Binder Error: Referenced column "REGION" not found'
     noeuds_impactes: *aval_2023
     decision_attendue: reparer
-    correction_apres_run: "Aucun échec observé (rc=0) : panne silencieuse, non détectée par dbt."
     reparation_attendue: {regle: alias, de: REGIONX, vers: REGION}
+    correction_apres_run: "Noeud en échec correct, aval sauté. Message réel (colonne REGION) : 'Column REGION referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined' (l'alias du staging masque la colonne). Indistinguable de P07 par le message."
 
   - id: P02
     description: Colonne NOM_ETABL renommée en NOM_ETAB
@@ -36,8 +38,8 @@ pannes:
     erreur_attendue: 'Binder Error: Referenced column "NOM_ETABL" not found'
     noeuds_impactes: *aval_2023
     decision_attendue: reparer
-    correction_apres_run: "Erreur réelle : 'Column REGION referenced that exists in the SELECT clause...' (alias masque la colonne). Indistinguable de P07 par le message."
     reparation_attendue: {regle: alias, de: NOM_ETAB, vers: NOM_ETABL}
+    correction_apres_run: "Conforme à la prédiction (noeud et erreur)."
 
   - id: P03
     description: Colonne COMMUNE renommée en COMMUNE_NOM
@@ -49,35 +51,43 @@ pannes:
     noeud_en_echec: stg_education_college_public_2023
     erreur_attendue: 'Binder Error: Referenced column "COMMUNE" not found'
     noeuds_impactes: *aval_2023
-    correction_apres_run: "Erreur réelle : 'Column REGION referenced that exists in the SELECT clause...' (alias masque la colonne). Indistinguable de P07 par le message."
     decision_attendue: reparer
     reparation_attendue: {regle: alias, de: COMMUNE_NOM, vers: COMMUNE}
+    correction_apres_run: "Noeud en échec correct, aval sauté. Message réel (colonne COMMUNE) : 'Column COMMUNE referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined' (l'alias du staging masque la colonne)."
 
   - id: P04
     description: Colonne COMMUNE passée en type BLOB (dérive de type)
     cible: raw.education_college_public_2023
     injection:
       type: sql
-      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB USING encode("COMMUNE")'
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB'
     cause_racine: type_modifie
     noeud_en_echec: stg_education_college_public_2023
     erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
     noeuds_impactes: *aval_2023
     decision_attendue: reparer
     reparation_attendue: {regle: cast, colonne: COMMUNE, type: VARCHAR}
+    correction_apres_run: "Injection d'origine impossible : DuckDB refuse STRING -> BLOB sur du texte accentué (Conversion Error, rc=-1 côté script, dbt n'a pas tourné). Injection corrigée dans injection_corrigee (non encore validée)."
+    injection_corrigee:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB USING encode("COMMUNE")'
 
   - id: P05
     description: Colonne PROVINCE passée en type BLOB
     cible: raw.education_college_public_2023
     injection:
       type: sql
-      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB USING encode("COMMUNE")'
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "PROVINCE" SET DATA TYPE BLOB'
     cause_racine: type_modifie
     noeud_en_echec: stg_education_college_public_2023
     erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
     noeuds_impactes: *aval_2023
     decision_attendue: reparer
     reparation_attendue: {regle: cast, colonne: PROVINCE, type: VARCHAR}
+    correction_apres_run: "Injection d'origine impossible : DuckDB refuse STRING -> BLOB sur du texte accentué (Conversion Error, rc=-1 côté script, dbt n'a pas tourné). Injection corrigée dans injection_corrigee (non encore validée)."
+    injection_corrigee:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "PROVINCE" SET DATA TYPE BLOB USING encode("PROVINCE")'
 
   - id: P06
     description: Verrou DuckDB tenu 20 s par un autre processus pendant le build (panne transitoire)
@@ -89,6 +99,7 @@ pannes:
     noeuds_impactes: []
     decision_attendue: reparer
     reparation_attendue: {regle: retry, tentatives_max: 3, attente_s: 30}
+    correction_apres_run: "Conforme à la prédiction (noeud et erreur)."
 
   - id: P07
     description: Colonne REGION supprimée du brut (donnée perdue, aucune colonne candidate)
@@ -102,6 +113,7 @@ pannes:
     noeuds_impactes: *aval_2023
     decision_attendue: escalader
     reparation_attendue: null
+    correction_apres_run: "Noeud en échec correct, aval sauté. Même message que P01 : seul le schéma du brut (REGIONX présente ou non) distingue renommage et suppression."
 
   - id: P08
     description: 100 lignes supprimées de raw.education_prive_2026
@@ -115,6 +127,7 @@ pannes:
     noeuds_impactes: [dim_etablissement_education, comparaison_versions_par_region]
     decision_attendue: escalader
     reparation_attendue: null
+    correction_apres_run: "Test en échec (rc=1, 'Got 1 result') mais aucun modèle sauté : un test singulier en échec ne bloque pas l'aval, qui est reconstruit sur des données incomplètes (propagation silencieuse)."
 
   - id: P09
     description: Empreinte _sha256 falsifiée dans le brut (intégrité de la source)
@@ -128,6 +141,7 @@ pannes:
     noeuds_impactes: *aval_2023
     decision_attendue: ne_pas_reparer   # corriger l'empreinte masquerait une altération
     reparation_attendue: null
+    correction_apres_run: "Test en échec comme prévu, mais les modèles aval n'ont pas été sautés (même mécanisme que P08)."
 
   - id: P10
     description: REGION mise en majuscules dans raw.education_qualifiant_public_2023
@@ -141,3 +155,4 @@ pannes:
     noeuds_impactes: *aval_2023
     decision_attendue: escalader   # la normalisation n'est pas une règle v1
     reparation_attendue: null
+    correction_apres_run: "Conforme : nom complet du test observé relationships_stg_education_qualifiant_public_2023_region__region__ref_dim_region_."
