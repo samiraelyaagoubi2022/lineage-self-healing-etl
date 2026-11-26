@@ -390,6 +390,8 @@ l'ingestion n'échoue pas pour autant.
 - `max_active_runs=1`, timeout de tâche 15 min, timeout de run 20 min, `set -euo pipefail`.
 - `select` validé par pattern. `echec_volontaire` fait `exit 1` avant dbt : le callback se déclenche, mais Marquez ne reçoit aucun événement dbt.
 
+
+
 ## Secrets (J6)
 - Aucun secret réel dans le dépôt. `docker-compose.yml` ne contient que des identifiants de développement local (admin/admin, mots de passe Postgres par défaut, clé Flask locale), à ne jamais réutiliser hors machine de dev.
-- `.env` : retiré de l'index (jamais de secret dans Git). Modèle : `.env.example`.
+- `.env` : retiré de l'index. La version commitée en J3 était vide. Modèle : `.env.example`.
