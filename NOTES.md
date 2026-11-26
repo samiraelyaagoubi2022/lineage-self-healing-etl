@@ -476,8 +476,7 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - Marquez : graphe continu job d'ingestion, `lineage.raw.<table>`, job dbt, `lineage.staging`,
   jobs dbt, `lineage.marts` (capture jointe).
 - Correction de l'inventaire : `origine()` classait les jobs dbt `lineage.*` et `test.*` dans Airflow.
-- Limites : « Parent job » = N/A (pas de ParentRunFacet) ; le chemin d'échec (FAIL) du nouveau code
-  n'a pas encore été déclenché.
+- Limite : « Parent job » = N/A sur notre job (pas de ParentRunFacet).
 
 **Convention de namespace**
 - Jobs (Airflow et dbt) : `projet` (docker-compose.yml, `OPENLINEAGE_NAMESPACE`).
