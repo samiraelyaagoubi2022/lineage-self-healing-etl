@@ -3,8 +3,8 @@
 | P01 | colonne_renommee | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | NON | - | reparer |
 | P02 | colonne_renommee | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | oui | - | reparer |
 | P03 | colonne_renommee | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | NON | - | reparer |
-| P04 | type_modifie | stg_education_college_public_2023 | aucun | NON | NON | - | reparer |
-| P05 | type_modifie | stg_education_college_public_2023 | aucun | NON | NON | - | reparer |
+| P04 | type_modifie | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | oui | - | reparer |
+| P05 | type_modifie | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | oui | - | reparer |
 | P06 | verrou_transitoire | dbt_build | dbt_build | oui | oui | - | reparer |
 | P07 | colonne_supprimee | stg_education_college_public_2023 | stg_education_college_public_2023 | oui | NON | - | escalader |
 | P08 | lignes_perdues | assert_staging_conserve_les_lignes | assert_staging_conserve_les_lignes | oui | n/a | dim_etablissement_education, comparaison_versions_par_region | escalader |
