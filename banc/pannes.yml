@@ -1,0 +1,140 @@
+# Banc de pannes J9 (B). Vérité terrain écrite AVANT toute exécution.
+# Chaque injection s'applique sur une COPIE de warehouse/lineage.duckdb, jamais sur la vraie base.
+version: 1
+base_source: warehouse/lineage.duckdb
+copie_de_travail: warehouse/banc/essai.duckdb
+
+# Noeuds en aval d'un fichier 2023 (hors hôpitaux) ; tests de ces noeuds inclus.
+aval_2023: &aval_2023
+  - dim_etablissement_education
+  - agg_etablissements_par_region_2023
+  - comparaison_versions_par_region
+
+pannes:
+  - id: P01
+    description: Colonne REGION renommée en REGIONX dans le brut (cas déjà observé le 25/11)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "REGION" TO "REGIONX"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "REGION" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: REGIONX, vers: REGION}
+
+  - id: P02
+    description: Colonne NOM_ETABL renommée en NOM_ETAB
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "NOM_ETABL" TO "NOM_ETAB"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "NOM_ETABL" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: NOM_ETAB, vers: NOM_ETABL}
+
+  - id: P03
+    description: Colonne COMMUNE renommée en COMMUNE_NOM
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "COMMUNE" TO "COMMUNE_NOM"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "COMMUNE" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: COMMUNE_NOM, vers: COMMUNE}
+
+  - id: P04
+    description: Colonne COMMUNE passée en type BLOB (dérive de type)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB'
+    cause_racine: type_modifie
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: cast, colonne: COMMUNE, type: VARCHAR}
+
+  - id: P05
+    description: Colonne PROVINCE passée en type BLOB
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "PROVINCE" SET DATA TYPE BLOB'
+    cause_racine: type_modifie
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: cast, colonne: PROVINCE, type: VARCHAR}
+
+  - id: P06
+    description: Verrou DuckDB tenu 20 s par un autre processus pendant le build (panne transitoire)
+    cible: warehouse/banc/essai.duckdb
+    injection: {type: verrou_temporaire, duree_s: 20}
+    cause_racine: verrou_transitoire
+    noeud_en_echec: dbt_build
+    erreur_attendue: 'IO Error: Could not set lock on file'
+    noeuds_impactes: []
+    decision_attendue: reparer
+    reparation_attendue: {regle: retry, tentatives_max: 3, attente_s: 30}
+
+  - id: P07
+    description: Colonne REGION supprimée du brut (donnée perdue, aucune colonne candidate)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 DROP COLUMN "REGION"'
+    cause_racine: colonne_supprimee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "REGION" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: escalader
+    reparation_attendue: null
+
+  - id: P08
+    description: 100 lignes supprimées de raw.education_prive_2026
+    cible: raw.education_prive_2026
+    injection:
+      type: sql
+      sql: 'DELETE FROM raw.education_prive_2026 WHERE rowid IN (SELECT rowid FROM raw.education_prive_2026 LIMIT 100)'
+    cause_racine: lignes_perdues
+    noeud_en_echec: assert_staging_conserve_les_lignes
+    erreur_attendue: 'test FAIL, lignes brut != lignes staging'
+    noeuds_impactes: [dim_etablissement_education, comparaison_versions_par_region]
+    decision_attendue: escalader
+    reparation_attendue: null
+
+  - id: P09
+    description: Empreinte _sha256 falsifiée dans le brut (intégrité de la source)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: "UPDATE raw.education_college_public_2023 SET _sha256 = 'falsifie'"
+    cause_racine: empreinte_incoherente
+    noeud_en_echec: assert_empreinte_staging_egale_provenance
+    erreur_attendue: 'test FAIL, empreinte != raw._provenance'
+    noeuds_impactes: *aval_2023
+    decision_attendue: ne_pas_reparer   # corriger l'empreinte masquerait une altération
+    reparation_attendue: null
+
+  - id: P10
+    description: REGION mise en majuscules dans raw.education_qualifiant_public_2023
+    cible: raw.education_qualifiant_public_2023
+    injection:
+      type: sql
+      sql: 'UPDATE raw.education_qualifiant_public_2023 SET "REGION" = upper("REGION")'
+    cause_racine: valeurs_derivees
+    noeud_en_echec: relationships_stg_education_qualifiant_public_2023_region
+    erreur_attendue: 'test FAIL, environ 10 lignes hors référentiel'
+    noeuds_impactes: *aval_2023
+    decision_attendue: escalader   # la normalisation n'est pas une règle v1
+    reparation_attendue: null
