@@ -408,3 +408,44 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - Injection 3 : `REGION` mis en majuscules dans `raw.education_qualifiant_public_2023` → `relationships` (B) FAIL 10.
 - Résultat obtenu : PASS=36 WARN=7 ERROR=3 SKIP=14 TOTAL=60.
 - Les 14 SKIP sont le périmètre impacté : `dim_etablissement_education`, `agg_etablissements_par_region_2023`, `comparaison_versions_par_region` et leurs tests ne sont pas reconstruits.
+
+### J5 - Vérification du travail de B sur mon PC (A, 2026-11-26)
+- DAG `dbt_build` importé sans erreur (`dags list-import-errors` = No data found).
+- Run normal (CLI) : PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60, **64 événements OpenLineage**.
+  - Note : 64 événements contre 46 en J4, car la PR #7 de B a ajouté 2 modèles marts et des tests singuliers.
+- Échec volontaire (`--conf '{\"echec_volontaire\": true}'`) : tâche en échec, callback déclenché.
+- `warehouse/failures.jsonl` contient la ligne de l'échec. `run_results` marqué "périmé (écrit avant cette tâche)" : le callback distingue bien un échec Airflow pur d'un échec dbt (comportement correct).
+- `scripts/check_failures_marquez.py` : job `dbt_build` + job `dbt_build.dbt_build` en FAILED, facets `errorMessage`, `airflowState`, `airflowDagRun`, `parent` présents.
+- ⚠️ Bug UI : le champ `select` vide bloque le bouton Trigger (« Veuillez renseigner ce champ »). Contournement : CLI.
+- ⚠️ Bug CLI PowerShell : `--conf '{"echec_volontaire": true}'` échoue (`JSONDecodeError`) car PowerShell mange les guillemets doubles. Contournement : `--conf '{\"echec_volontaire\": true}'`.
+- ⚠️ `scripts/marquez_erreur.py` a des run_id en dur (ceux du PC de B), ne rejoue pas chez moi (404).
+
+### J6-1 - Pipeline rejoué 3 fois sans erreur (A, 2026-11-26)
+- 3 runs de `pipeline_education_sante` déclenchés manuellement :
+  - run 1 : manual__2026-11-25T23:43:42 → success
+  - run 2 : manual__2026-11-25T23:55:43 → success
+  - run 3 : manual__2026-11-26T00:00:14 → success
+- Empreintes (`empreinte_base.py`) prises **après la fin** de chaque run.
+- Comparaison (`Compare-Object`) entre run 1 et run 2 : aucune différence.
+- Comparaison entre run 2 et run 3 : aucune différence.
+- **Conclusion : le pipeline est idempotent** — rejouer 3 fois ne change aucune donnée (raw, staging, marts, ref).
+- Les colonnes `_charge_le` et `_run_id` sont exclues de l'empreinte (elles changent par construction).
+
+### J6 - Pipeline stable (A, 2026-11-26)
+
+**J6-1 : Pipeline rejoué 3 fois sans erreur**
+- 3 runs de `pipeline_education_sante` (23:43, 23:55, 00:00) → tous en `success`.
+- Empreintes (`empreinte_base.py`) prises **après la fin** de chaque run.
+- `Compare-Object` entre les 3 fichiers : aucune différence.
+- Conclusion : **pipeline idempotent** (raw, staging, marts, ref).
+
+**J6-2 : dbt docs generate + tests de qualité**
+- `dbt docs generate` : `catalog.json` et `manifest.json` générés.
+- `dbt build` frais : `PASS=51 WARN=9 ERROR=0 SKIP=0 TOTAL=60`.
+- `resume_tests_dbt.py` : **46 tests, 37 pass, 9 warn, 0 fail, 0 error**.
+- Les 9 WARN correspondent aux dérives connues et documentées :
+  - 5 dérives `Casablanca-Settat` (éducation 2026 + hôpitaux 2025) : 437+1206+1654+301+27 = 3 625 lignes.
+  - 1 `region_code` NULL dans `agg_hopitaux_par_region` (Casablanca).
+  - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
+  - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
+- ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
