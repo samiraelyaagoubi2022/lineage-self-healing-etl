@@ -546,3 +546,11 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
     Vérifié sur sante_hopitaux_2025 : les trois liens de la fiche ouvrent le bon objet dans Marquez
   (job d'ingestion, dataset lineage.raw.sante_hopitaux_2025, job dbt stg_sante_hopitaux_2025),
   graphe continu job d'ingestion, table brute, job dbt, staging, jobs en aval.
+  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
+  et `sante_hopitaux_2025`, par `scripts/verifier_fiche.py` (6 contrôles OK par table).
+  SHA-256 de la fiche identique à `raw._provenance`, à la colonne `_sha256` de la table brute et
+  au staging ; lignes 6387 et 184 identiques partout ; URL de la fiche identique à celle de
+  `raw._provenance` ; fichier du portail re-téléchargé depuis cette URL avec la même empreinte
+  (1f535cb1… et 4f1f5645…), donc inchangé depuis le 2026-11-18. Liens Marquez (job d'ingestion,
+  dataset brut, job dbt) ouverts pour les deux tables. Fiches générées avec le commit 9a49c50,
+  run `manual__2026-11-26T23:53:17+00:00`.
