@@ -502,3 +502,39 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
     lui-même les modèles impactés.
   - L'échec arrive avant l'écriture dans DuckDB (structure du code). Run normal relancé ensuite :
     9/9 tables correctes.
+  - Graphe unifié sans dataset en double (A, 2026-11-27) : 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (9 raw, `raw._provenance`, 9 staging, 4 marts),
+  aucun nom présent dans deux namespaces, aucun nom issu de l'ancienne méthode (`{{ source.table }}`).
+  Airflow et dbt déclarent les tables brutes sous le même namespace et le même nom : un seul
+  dataset par table. Namespace `default` vide. Restes du jour 1 dans `projet` : datasets
+  `source_brute` et `table_finale` (avec le job `job_test`), à supprimer ou à exclure, à décider avec B.
+  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
+  et `sante_hopitaux_2025`. SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
+  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche `data/provenance/<table>.md`
+  et `docs/provenance.md` (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Le fichier du
+  portail n'a pas changé depuis le 2026-11-18.
+  Écart : les fiches datent du run du 25/11 (commit 5f0fe8b), à régénérer par B ; lien Marquez de
+  la fiche à vérifier sur les fiches régénérées.
+  ### J8 - Graphe unifié et provenance (A, 2026-11-27)
+
+- **Graphe unifié sans dataset en double.** 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (4 marts, `raw._provenance`, 9 raw, 9 staging).
+  Aucun nom n'est présent dans deux namespaces, aucun nom ne vient de l'ancienne méthode
+  (`{{ source.table }}`), le namespace `default` est vide. Airflow et dbt déclarent les tables
+  brutes sous le même namespace et le même nom : un seul dataset par table
+  (`scripts/check_doublons_marquez.py`, `scripts/liste_datasets_marquez.py`).
+
+- **Nettoyage des restes du jour 1.** Suppression dans Marquez du job `job_test` et des datasets
+  `source_brute` et `table_finale` (`scripts/nettoyer_restes_jour1.py` : les trois DELETE
+  retournent 200). Après nettoyage : 0 dataset dans le namespace `projet`, 23 dans `duckdb:///…`,
+  aucun job en échec dans l'état courant (`check_echec_marquez.py` n'affiche rien),
+  9/9 tables correctes (`check_ingestion_lineage.py`), 13/13 modèles dbt COMPLETED sans modèle
+  absent (`check_dbt_marquez.py`). Accord de B : à confirmer.
+  L'historique des échecs réels (J3, J5, échec provoqué en J7) reste dans les runs des jobs concernés.
+
+- **Fiche vérifiée sur 2 tables jusqu'au fichier source** (`education_prive_2026`,
+  `sante_hopitaux_2025`). SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
+  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche et `docs/provenance.md`
+  (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Reste à faire : les fiches de
+  `data/provenance/` datent du run du 25/11 (commit 5f0fe8b), B doit les régénérer ; ensuite,
+  vérifier que le lien « Job dbt dans Marquez » ouvre le bon job `stg_<table>`.
