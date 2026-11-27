@@ -476,8 +476,7 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - Marquez : graphe continu job d'ingestion, `lineage.raw.<table>`, job dbt, `lineage.staging`,
   jobs dbt, `lineage.marts` (capture jointe).
 - Correction de l'inventaire : `origine()` classait les jobs dbt `lineage.*` et `test.*` dans Airflow.
-- Limites : « Parent job » = N/A (pas de ParentRunFacet) ; le chemin d'échec (FAIL) du nouveau code
-  n'a pas encore été déclenché.
+- Limite : « Parent job » = N/A sur notre job (pas de ParentRunFacet).
 
 **Convention de namespace**
 - Jobs (Airflow et dbt) : `projet` (docker-compose.yml, `OPENLINEAGE_NAMESPACE`).
@@ -488,4 +487,70 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   sur raw._provenance). Entrées : 1 par stg_*, 8 pour dim_etablissement_education, 4 pour
   agg_etablissements_par_region_2023. dim_region (seed) n'apparaît pas en entrée des marts qui
   le joignent : limite déjà connue.
-  
+  - Échec d'ingestion provoqué (URL volontairement fausse sur sante_hopitaux_2025, 2026-11-27) :
+  la réponse n'était pas un XLSX, la tâche est passée en failed (AirflowFailException, sans nouvelle
+  tentative). Ce que contient Marquez :
+  - notre job `ingestion_data_gov_ma.charger_fichier.sante_hopitaux_2025` : run FAILED, un seul facet
+    `errorMessage` (« AirflowFailException: sante_hopitaux_2025 : la reponse n'est pas un fichier
+    XLSX (page HTML ?) ») ; pas de lien vers le DAG (Parent job N/A) ;
+  - job du provider `ingestion_data_gov_ma.charger_fichier` : FAILED, facets `errorMessage` (même
+    message), `parent` (DAG et run Airflow), `airflow_mappedTask` ;
+  - job du DAG `ingestion_data_gov_ma` : FAILED, `errorMessage` = « task_failure », `airflowState`
+    avec l'état de chaque tâche.
+  - Le nom de la table figure dans le nom du job et dans le message : la table en cause se retrouve
+    sans autre source. Le graphe garde les liens vers l'aval dbt : Marquez ne signale pas
+    lui-même les modèles impactés.
+  - L'échec arrive avant l'écriture dans DuckDB (structure du code). Run normal relancé ensuite :
+    9/9 tables correctes.
+  - Graphe unifié sans dataset en double (A, 2026-11-27) : 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (9 raw, `raw._provenance`, 9 staging, 4 marts),
+  aucun nom présent dans deux namespaces, aucun nom issu de l'ancienne méthode (`{{ source.table }}`).
+  Airflow et dbt déclarent les tables brutes sous le même namespace et le même nom : un seul
+  dataset par table. Namespace `default` vide. Restes du jour 1 dans `projet` : datasets
+  `source_brute` et `table_finale` (avec le job `job_test`), à supprimer ou à exclure, à décider avec B.
+  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
+  et `sante_hopitaux_2025`. SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
+  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche `data/provenance/<table>.md`
+  et `docs/provenance.md` (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Le fichier du
+  portail n'a pas changé depuis le 2026-11-18.
+  Écart : les fiches datent du run du 25/11 (commit 5f0fe8b), à régénérer par B ; lien Marquez de
+  la fiche à vérifier sur les fiches régénérées.
+  ### J8 - Graphe unifié et provenance (A, 2026-11-27)
+
+- **Graphe unifié sans dataset en double.** 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (4 marts, `raw._provenance`, 9 raw, 9 staging).
+  Aucun nom n'est présent dans deux namespaces, aucun nom ne vient de l'ancienne méthode
+  (`{{ source.table }}`), le namespace `default` est vide. Airflow et dbt déclarent les tables
+  brutes sous le même namespace et le même nom : un seul dataset par table
+  (`scripts/check_doublons_marquez.py`, `scripts/liste_datasets_marquez.py`).
+
+- **Nettoyage des restes du jour 1.** Suppression dans Marquez du job `job_test` et des datasets
+  `source_brute` et `table_finale` (`scripts/nettoyer_restes_jour1.py` : les trois DELETE
+  retournent 200). Après nettoyage : 0 dataset dans le namespace `projet`, 23 dans `duckdb:///…`,
+  aucun job en échec dans l'état courant (`check_echec_marquez.py` n'affiche rien),
+  9/9 tables correctes (`check_ingestion_lineage.py`), 13/13 modèles dbt COMPLETED sans modèle
+  absent (`check_dbt_marquez.py`). Accord de B : à confirmer.
+  L'historique des échecs réels (J3, J5, échec provoqué en J7) reste dans les runs des jobs concernés.
+
+- **Fiche vérifiée sur 2 tables jusqu'au fichier source** (`education_prive_2026`,
+  `sante_hopitaux_2025`). SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
+  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche et `docs/provenance.md`
+  (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Reste à faire : les fiches de
+  `data/provenance/` datent du run du 25/11 (commit 5f0fe8b), B doit les régénérer ; ensuite,
+  vérifier que le lien « Job dbt dans Marquez » ouvre le bon job `stg_<table>`.
+
+    Fiches régénérées le 2026-11-27 avec `scripts/gen_provenance.py` (commit 9a49c50, run
+  `manual__2026-11-26T23:53:17+00:00`). Vérifié sur `education_prive_2026` et
+  `sante_hopitaux_2025` : SHA-256 identique au fichier téléchargé et à `raw._provenance`,
+  les trois liens Marquez (job d'ingestion, dataset brut, job dbt) ouvrent le bon objet.
+    Vérifié sur sante_hopitaux_2025 : les trois liens de la fiche ouvrent le bon objet dans Marquez
+  (job d'ingestion, dataset lineage.raw.sante_hopitaux_2025, job dbt stg_sante_hopitaux_2025),
+  graphe continu job d'ingestion, table brute, job dbt, staging, jobs en aval.
+  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
+  et `sante_hopitaux_2025`, par `scripts/verifier_fiche.py` (6 contrôles OK par table).
+  SHA-256 de la fiche identique à `raw._provenance`, à la colonne `_sha256` de la table brute et
+  au staging ; lignes 6387 et 184 identiques partout ; URL de la fiche identique à celle de
+  `raw._provenance` ; fichier du portail re-téléchargé depuis cette URL avec la même empreinte
+  (1f535cb1… et 4f1f5645…), donc inchangé depuis le 2026-11-18. Liens Marquez (job d'ingestion,
+  dataset brut, job dbt) ouverts pour les deux tables. Fiches générées avec le commit 9a49c50,
+  run `manual__2026-11-26T23:53:17+00:00`.
