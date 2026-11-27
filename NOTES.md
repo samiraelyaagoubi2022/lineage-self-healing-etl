@@ -538,3 +538,11 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Reste à faire : les fiches de
   `data/provenance/` datent du run du 25/11 (commit 5f0fe8b), B doit les régénérer ; ensuite,
   vérifier que le lien « Job dbt dans Marquez » ouvre le bon job `stg_<table>`.
+
+    Fiches régénérées le 2026-11-27 avec `scripts/gen_provenance.py` (commit 9a49c50, run
+  `manual__2026-11-26T23:53:17+00:00`). Vérifié sur `education_prive_2026` et
+  `sante_hopitaux_2025` : SHA-256 identique au fichier téléchargé et à `raw._provenance`,
+  les trois liens Marquez (job d'ingestion, dataset brut, job dbt) ouvrent le bon objet.
+    Vérifié sur sante_hopitaux_2025 : les trois liens de la fiche ouvrent le bon objet dans Marquez
+  (job d'ingestion, dataset lineage.raw.sante_hopitaux_2025, job dbt stg_sante_hopitaux_2025),
+  graphe continu job d'ingestion, table brute, job dbt, staging, jobs en aval.
