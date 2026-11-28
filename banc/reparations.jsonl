@@ -1,0 +1,10 @@
+{"panne": "P01", "tentative": 1, "cause": "colonne_renommee", "regle": "alias", "sql": "ALTER TABLE raw.\"education_college_public_2023\" RENAME COLUMN \"REGIONX\" TO \"REGION\"", "ts": "2026-11-26T21:39:43.943929+00:00"}
+{"panne": "P02", "tentative": 1, "cause": "colonne_renommee", "regle": "alias", "sql": "ALTER TABLE raw.\"education_college_public_2023\" RENAME COLUMN \"NOM_ETAB\" TO \"NOM_ETABL\"", "ts": "2026-11-26T21:40:19.830069+00:00"}
+{"panne": "P03", "tentative": 1, "cause": "colonne_renommee", "regle": "alias", "sql": "ALTER TABLE raw.\"education_college_public_2023\" RENAME COLUMN \"COMMUNE_NOM\" TO \"COMMUNE\"", "ts": "2026-11-26T21:40:52.652657+00:00"}
+{"panne": "P04", "tentative": 1, "cause": "type_modifie", "regle": "cast", "sql": "ALTER TABLE raw.\"education_college_public_2023\" ALTER COLUMN \"COMMUNE\" SET DATA TYPE VARCHAR USING decode(\"COMMUNE\")", "ts": "2026-11-26T21:41:26.285595+00:00"}
+{"panne": "P05", "tentative": 1, "cause": "type_modifie", "regle": "cast", "sql": "ALTER TABLE raw.\"education_college_public_2023\" ALTER COLUMN \"PROVINCE\" SET DATA TYPE VARCHAR USING decode(\"PROVINCE\")", "ts": "2026-11-26T21:42:00.617896+00:00"}
+{"panne": "P06", "tentative": 1, "cause": "verrou_transitoire", "regle": "retry", "attente_s": 30, "ts": "2026-11-26T21:42:32.589630+00:00"}
+{"panne": "P07", "tentative": 1, "cause": "colonne_supprimee", "regle": null, "decision": "escalader", "ts": "2026-11-26T21:43:36.207936+00:00"}
+{"panne": "P08", "tentative": 1, "cause": "lignes_perdues", "regle": null, "decision": "escalader", "tests": ["assert_staging_conserve_les_lignes"], "ts": "2026-11-26T21:43:53.723764+00:00"}
+{"panne": "P09", "tentative": 1, "cause": "empreinte_incoherente", "regle": null, "decision": "ne_pas_reparer", "tests": ["assert_empreinte_staging_egale_provenance"], "ts": "2026-11-26T21:44:13.322055+00:00"}
+{"panne": "P10", "tentative": 1, "cause": "valeurs_derivees", "regle": null, "decision": "escalader", "tests": ["relationships_stg_education_qualifiant_public_2023_region__region__ref_dim_region_"], "ts": "2026-11-26T21:44:29.268136+00:00"}

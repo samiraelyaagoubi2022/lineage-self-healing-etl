@@ -1,0 +1,215 @@
+[
+ {
+  "id": "P01",
+  "cause": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": false,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 19.3,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: Column \"REGION\" referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined"
+  ]
+ },
+ {
+  "id": "P02",
+  "cause": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": true,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 15.3,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: Referenced column \"NOM_ETABL\" not found in FROM clause!\n  Candidate bindings: \"NOM_ETAB\", \"NOM_ETABA\", \"COMMUNE\"\n  \n  LINE 6:     trim(\"NOM_ETABL\") as etablissement,\n      "
+  ]
+ },
+ {
+  "id": "P03",
+  "cause": "colonne_renommee",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": false,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 15.9,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: Column \"COMMUNE\" referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined"
+  ]
+ },
+ {
+  "id": "P04",
+  "cause": "type_modifie",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": true,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 14.8,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: No function matches the given name and argument types 'trim(BLOB)'. You might need to add explicit type casts.\n  \tCandidate functions:\n  \ttrim(VARCHAR) -> VARCHAR\n  \ttrim(V"
+  ]
+ },
+ {
+  "id": "P05",
+  "cause": "type_modifie",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": true,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 19.5,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: No function matches the given name and argument types 'trim(BLOB)'. You might need to add explicit type casts.\n  \tCandidate functions:\n  \ttrim(VARCHAR) -> VARCHAR\n  \ttrim(V"
+  ]
+ },
+ {
+  "id": "P06",
+  "cause": "verrou_transitoire",
+  "decision_attendue": "reparer",
+  "noeud_attendu": "dbt_build",
+  "noeuds_en_echec_observes": [
+   "dbt_build"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": true,
+  "impactes_manquants": [],
+  "modeles_sautes": [],
+  "returncode": 2,
+  "duree_s": 19.9,
+  "messages": []
+ },
+ {
+  "id": "P07",
+  "cause": "colonne_supprimee",
+  "decision_attendue": "escalader",
+  "noeud_attendu": "stg_education_college_public_2023",
+  "noeuds_en_echec_observes": [
+   "stg_education_college_public_2023"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": false,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 16.8,
+  "messages": [
+   "Runtime Error in model stg_education_college_public_2023 (models/staging/stg_education_college_public_2023.sql)\n  Binder Error: Column \"REGION\" referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined"
+  ]
+ },
+ {
+  "id": "P08",
+  "cause": "lignes_perdues",
+  "decision_attendue": "escalader",
+  "noeud_attendu": "assert_staging_conserve_les_lignes",
+  "noeuds_en_echec_observes": [
+   "assert_staging_conserve_les_lignes"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": null,
+  "impactes_manquants": [
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "modeles_sautes": [],
+  "returncode": 1,
+  "duree_s": 22.6,
+  "messages": [
+   "Got 1 result, configured to fail if != 0"
+  ]
+ },
+ {
+  "id": "P09",
+  "cause": "empreinte_incoherente",
+  "decision_attendue": "ne_pas_reparer",
+  "noeud_attendu": "assert_empreinte_staging_egale_provenance",
+  "noeuds_en_echec_observes": [
+   "assert_empreinte_staging_egale_provenance"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": null,
+  "impactes_manquants": [
+   "dim_etablissement_education",
+   "agg_etablissements_par_region_2023",
+   "comparaison_versions_par_region"
+  ],
+  "modeles_sautes": [],
+  "returncode": 1,
+  "duree_s": 26.7,
+  "messages": [
+   "Got 1 result, configured to fail if != 0"
+  ]
+ },
+ {
+  "id": "P10",
+  "cause": "valeurs_derivees",
+  "decision_attendue": "escalader",
+  "noeud_attendu": "relationships_stg_education_qualifiant_public_2023_region",
+  "noeuds_en_echec_observes": [
+   "relationships_stg_education_qualifiant_public_2023_region__region__ref_dim_region_"
+  ],
+  "noeud_ok": true,
+  "erreur_ok": null,
+  "impactes_manquants": [],
+  "modeles_sautes": [
+   "agg_etablissements_par_region_2023",
+   "dim_etablissement_education",
+   "comparaison_versions_par_region"
+  ],
+  "returncode": 1,
+  "duree_s": 22.2,
+  "messages": [
+   "Got 1414 results, configured to fail if != 0"
+  ]
+ }
+]

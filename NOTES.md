@@ -451,6 +451,28 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
 ### J7 - OpenLineage Airflow vers Marquez (A, 2026-11-27)
 
+## Banc de pannes J9 (B)
+- `banc/pannes.yml` (10 pannes, vérité terrain) commité en `d2133a5` le 2026-11-26, avant toute exécution ni injection.
+- Répartition prévue : 6 à réparer (P01 à P06), 3 à escalader (P07, P08, P10), 1 à ne pas réparer (P09).
+- Les erreurs attendues de P04 et P05 (BLOB) et les nœuds impactés étaient des hypothèses au moment du commit.
+- Commentaires de justification retirés du YAML : P09, corriger l'empreinte masquerait une altération ; P10, la normalisation des valeurs n'est pas une règle v1.
+
+## Résultats du banc de pannes (J9, B, 2026-11-26)
+- Prédictions : `d2133a5`. Résultats : `f2c7f25`. Corrections après run : `79c3733`, `9ad9094`.
+- Nœud en échec conforme à la prédiction pour 10 pannes sur 10.
+- Message d'erreur reconnu automatiquement pour 7 pannes sur 10. P01, P03 et P07 : l'alias du staging masque la colonne, le message diffère de la prédiction.
+- P01 (renommage) et P07 (suppression) donnent le même message : seul le schéma du brut les distingue.
+- P08 et P09 : un test singulier en échec ne bloque pas l'aval (propagation silencieuse). P10 : un test relationships bloque l'aval.
+- P04 et P05 : injection BLOB d'origine impossible, remplacée par USING encode (validée).
+- P06 : dbt meurt sans run_results.json (rc=2), erreur uniquement dans stdout.
+- P10 : 1414 lignes en échec au lieu de ~10 prédites.
+
+## Réparateur à règles v1 (J9, B)
+- `scripts/reparateur.py` : retry (3 builds max, 30 s), alias (renommage unique détecté par comparaison au schéma sain), cast (BLOB vers VARCHAR). Toujours sur la copie `essai.duckdb`.
+- Résultat : décision, cause et règle conformes à `banc/pannes.yml` pour 10 pannes sur 10 (6 réparées, 3 escaladées, 1 non réparée). Détail : `banc/reparations.md`, journal : `banc/reparations.jsonl`.
+- `scripts/verif_reparation.py` : brut réparé comparé à la base saine pour P01 à P05, 0 écart dans les deux sens. Limite : EXCEPT ignore les doublons.
+- P06 : validée par le build seul (un retry ne modifie aucune donnée).
+- Limites : les causes attendues sont celles de nos propres règles ; instantané de référence pris sur la base saine.
 **Première méthode, abandonnée : `outlets=[Dataset(...)]`**
 - `@task(outlets=[Dataset("duckdb:///...#lineage.raw.{{ source.table }}")])`.
 - `outlets` n'est pas templaté dans Airflow 2.10 : l'interface Airflow affichait le nom littéral

@@ -1,0 +1,156 @@
+# Banc de pannes J9 (B). Verite terrain ecrite AVANT toute execution (commit d2133a5).
+# Les champs correction_apres_run / injection_corrigee ont ete ajoutes APRES les runs ;
+# les predictions d'origine ne sont pas modifiees.
+version: 1
+base_source: warehouse/lineage.duckdb
+copie_de_travail: warehouse/banc/essai.duckdb
+
+aval_2023: &aval_2023
+  - dim_etablissement_education
+  - agg_etablissements_par_region_2023
+  - comparaison_versions_par_region
+
+pannes:
+  - id: P01
+    description: Colonne REGION renommee en REGIONX dans le brut (cas deja observe le 25/11)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "REGION" TO "REGIONX"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "REGION" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: REGIONX, vers: REGION}
+    correction_apres_run: 'Noeud en echec correct, aval saute. Message reel (colonne REGION) : Column REGION referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined (alias du staging). Indistinguable de P07 par le message.'
+
+  - id: P02
+    description: Colonne NOM_ETABL renommee en NOM_ETAB
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "NOM_ETABL" TO "NOM_ETAB"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "NOM_ETABL" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: NOM_ETAB, vers: NOM_ETABL}
+    correction_apres_run: 'Conforme a la prediction (noeud et erreur). Le message donne des candidats (NOM_ETAB).'
+
+  - id: P03
+    description: Colonne COMMUNE renommee en COMMUNE_NOM
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 RENAME COLUMN "COMMUNE" TO "COMMUNE_NOM"'
+    cause_racine: colonne_renommee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "COMMUNE" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: alias, de: COMMUNE_NOM, vers: COMMUNE}
+    correction_apres_run: 'Noeud en echec correct, aval saute. Message reel (colonne COMMUNE) : Column COMMUNE referenced that exists in the SELECT clause - but this column cannot be referenced before it is defined (alias du staging).'
+
+  - id: P04
+    description: Colonne COMMUNE passee en type BLOB (derive de type)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB'
+    cause_racine: type_modifie
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: cast, colonne: COMMUNE, type: VARCHAR}
+    correction_apres_run: 'Injection initiale impossible : DuckDB refuse STRING vers BLOB sur du texte accentue (rc=-1 cote script, dbt na pas tourne). injection_corrigee (USING encode) validee au run du 26/11 : noeud et erreur conformes.'
+    injection_corrigee:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "COMMUNE" SET DATA TYPE BLOB USING encode("COMMUNE")'
+
+  - id: P05
+    description: Colonne PROVINCE passee en type BLOB
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "PROVINCE" SET DATA TYPE BLOB'
+    cause_racine: type_modifie
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: No function matches ... trim(BLOB)'
+    noeuds_impactes: *aval_2023
+    decision_attendue: reparer
+    reparation_attendue: {regle: cast, colonne: PROVINCE, type: VARCHAR}
+    correction_apres_run: 'Injection initiale impossible (meme cause que P04). injection_corrigee (USING encode) validee au run du 26/11 : noeud et erreur conformes.'
+    injection_corrigee:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 ALTER COLUMN "PROVINCE" SET DATA TYPE BLOB USING encode("PROVINCE")'
+
+  - id: P06
+    description: Verrou DuckDB tenu 20 s par un autre processus pendant le build (panne transitoire)
+    cible: warehouse/banc/essai.duckdb
+    injection: {type: verrou_temporaire, duree_s: 20}
+    cause_racine: verrou_transitoire
+    noeud_en_echec: dbt_build
+    erreur_attendue: 'IO Error: Could not set lock on file'
+    noeuds_impactes: []
+    decision_attendue: reparer
+    reparation_attendue: {regle: retry, tentatives_max: 3, attente_s: 30}
+    correction_apres_run: 'Noeud et erreur conformes, mais rc=2 sans run_results.json ni message structure : lerreur nest que dans stdout et stderr de dbt.'
+
+  - id: P07
+    description: Colonne REGION supprimee du brut (donnee perdue, aucune colonne candidate)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: 'ALTER TABLE raw.education_college_public_2023 DROP COLUMN "REGION"'
+    cause_racine: colonne_supprimee
+    noeud_en_echec: stg_education_college_public_2023
+    erreur_attendue: 'Binder Error: Referenced column "REGION" not found'
+    noeuds_impactes: *aval_2023
+    decision_attendue: escalader
+    reparation_attendue: null
+    correction_apres_run: 'Noeud en echec correct, aval saute. Meme message que P01 : seul le schema du brut (REGIONX presente ou non) distingue renommage et suppression.'
+
+  - id: P08
+    description: 100 lignes supprimees de raw.education_prive_2026
+    cible: raw.education_prive_2026
+    injection:
+      type: sql
+      sql: 'DELETE FROM raw.education_prive_2026 WHERE rowid IN (SELECT rowid FROM raw.education_prive_2026 LIMIT 100)'
+    cause_racine: lignes_perdues
+    noeud_en_echec: assert_staging_conserve_les_lignes
+    erreur_attendue: 'test FAIL, lignes brut != lignes staging'
+    noeuds_impactes: [dim_etablissement_education, comparaison_versions_par_region]
+    decision_attendue: escalader
+    reparation_attendue: null
+    correction_apres_run: 'Test en echec (rc=1, Got 1 result), aucun modele saute : le test singulier est une feuille, laval est reconstruit sur des donnees incompletes (propagation silencieuse).'
+
+  - id: P09
+    description: Empreinte _sha256 falsifiee dans le brut (integrite de la source)
+    cible: raw.education_college_public_2023
+    injection:
+      type: sql
+      sql: "UPDATE raw.education_college_public_2023 SET _sha256 = 'falsifie'"
+    cause_racine: empreinte_incoherente
+    noeud_en_echec: assert_empreinte_staging_egale_provenance
+    erreur_attendue: 'test FAIL, empreinte != raw._provenance'
+    noeuds_impactes: *aval_2023
+    decision_attendue: ne_pas_reparer
+    reparation_attendue: null
+    correction_apres_run: 'Test en echec comme prevu (rc=1), aucun modele saute (meme mecanisme que P08) : laval est reconstruit malgre une empreinte falsifiee.'
+
+  - id: P10
+    description: REGION mise en majuscules dans raw.education_qualifiant_public_2023
+    cible: raw.education_qualifiant_public_2023
+    injection:
+      type: sql
+      sql: 'UPDATE raw.education_qualifiant_public_2023 SET "REGION" = upper("REGION")'
+    cause_racine: valeurs_derivees
+    noeud_en_echec: relationships_stg_education_qualifiant_public_2023_region
+    erreur_attendue: 'test FAIL, environ 10 lignes hors referentiel'
+    noeuds_impactes: *aval_2023
+    decision_attendue: escalader
+    reparation_attendue: null
+    correction_apres_run: 'Noeud conforme (relationships ... region ref_dim_region) et aval saute, mais 1414 lignes en echec au lieu des environ 10 predites : linjection met toute la colonne en majuscules (a confirmer par un count).'
