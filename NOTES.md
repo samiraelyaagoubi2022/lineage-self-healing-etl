@@ -532,25 +532,43 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   absent (`check_dbt_marquez.py`). Accord de B : à confirmer.
   L'historique des échecs réels (J3, J5, échec provoqué en J7) reste dans les runs des jobs concernés.
 
-- **Fiche vérifiée sur 2 tables jusqu'au fichier source** (`education_prive_2026`,
-  `sante_hopitaux_2025`). SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
-  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche et `docs/provenance.md`
-  (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Reste à faire : les fiches de
-  `data/provenance/` datent du run du 25/11 (commit 5f0fe8b), B doit les régénérer ; ensuite,
-  vérifier que le lien « Job dbt dans Marquez » ouvre le bon job `stg_<table>`.
+- **Fiches de provenance régénérées** par A (B n'était pas disponible), avec
+  `scripts/gen_provenance.py` (commit `9a49c50`, run `manual__2026-11-26T23:53:17+00:00`) :
+  9 fiches dans `data/provenance/`, chacune avec trois liens Marquez (job d'ingestion, dataset brut,
+  job dbt). Le script refuse de tourner sans `GIT_SHA` et écrit « non renseigné » pour une valeur vide.
+  Vérification par B : à faire.
 
-    Fiches régénérées le 2026-11-27 avec `scripts/gen_provenance.py` (commit 9a49c50, run
-  `manual__2026-11-26T23:53:17+00:00`). Vérifié sur `education_prive_2026` et
-  `sante_hopitaux_2025` : SHA-256 identique au fichier téléchargé et à `raw._provenance`,
-  les trois liens Marquez (job d'ingestion, dataset brut, job dbt) ouvrent le bon objet.
-    Vérifié sur sante_hopitaux_2025 : les trois liens de la fiche ouvrent le bon objet dans Marquez
-  (job d'ingestion, dataset lineage.raw.sante_hopitaux_2025, job dbt stg_sante_hopitaux_2025),
-  graphe continu job d'ingestion, table brute, job dbt, staging, jobs en aval.
-  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
-  et `sante_hopitaux_2025`, par `scripts/verifier_fiche.py` (6 contrôles OK par table).
-  SHA-256 de la fiche identique à `raw._provenance`, à la colonne `_sha256` de la table brute et
-  au staging ; lignes 6387 et 184 identiques partout ; URL de la fiche identique à celle de
-  `raw._provenance` ; fichier du portail re-téléchargé depuis cette URL avec la même empreinte
-  (1f535cb1… et 4f1f5645…), donc inchangé depuis le 2026-11-18. Liens Marquez (job d'ingestion,
-  dataset brut, job dbt) ouverts pour les deux tables. Fiches générées avec le commit 9a49c50,
-  run `manual__2026-11-26T23:53:17+00:00`.
+- **Fiche vérifiée sur 2 tables jusqu'au fichier source** (`education_prive_2026`,
+  `sante_hopitaux_2025`), par `scripts/verifier_fiche.py` (6 contrôles OK par table).
+  SHA-256 identique entre la fiche, `raw._provenance`, la colonne `_sha256` de la table brute, le
+  staging et `docs/provenance.md` (1f535cb1… et 4f1f5645…) ; lignes 6387 et 184 identiques partout ;
+  URL de la fiche identique à celle de `raw._provenance` ; fichier du portail re-téléchargé avec la
+  même empreinte, donc inchangé depuis le 2026-11-18. Les trois liens Marquez ouverts et corrects
+  pour les deux tables.
+
+### J9 - Analyse d'impact (A, 2026-11-28)
+
+- **Analyse d'impact (dbt `state:modified+` et Marquez).** `scripts/analyse_impact.py` compare le
+  périmètre donné par `dbt ls` et le graphe de lineage de Marquez, et écrit un rapport Markdown dans
+  `data/rapports/`. Trois scénarios : panne sur une table brute, modèle modifié, seed modifié.
+  Synthèse : `docs/analyse_impact_j9.md`. Dbt et Marquez concordent sur le flux de données ;
+  Marquez ne voit pas le seed `dim_region` (départ introuvable, HTTP 404). Proposition retenue,
+  validée avec B : manifest dbt pour le périmètre, Marquez pour l'état des jobs et des runs.
+
+- **Rapport exact sur 3 changements simulés.** Pour chaque changement, prédiction (`dbt ls`) puis
+  vrai `dbt build` sur une copie de la base (`essai.duckdb`, `DUCKDB_PATH`), comparés à un build de
+  référence (`scripts/simuler_changement.py`, `scripts/comparer_impact.py`). La vraie base n'est pas modifiée.
+
+  | Changement | Prédit | Observé | Omis | Part touchée |
+  |---|---|---|---|---|
+  | `REGION` renommée `LL_REG` (table brute) | 20 | 20 | 0 | 100 % |
+  | `region` renommée dans `stg_education_prive_2026` | 17 | 13 | 0 | 76 % |
+  | Seed `dim_region` : « Grand Casablanca-Settat » devient « Casablanca-Settat » | 31 | 24 | 0 | 77 % |
+
+  Aucun omis sur les 3 changements ; prédiction exacte pour le premier, périmètre maximal pour les
+  deux autres (nœud modifié, ses tests et tests hors de la colonne touchée). Renommer la région dans le
+  seed corrige les tests 2026 (3625 lignes) mais casse les tests 2023 (3169 lignes). Rapport :
+  `docs/rapport_changements_simules_j9.md`, détails dans `data/rapports/simulation_*.md`.
+
+- **À savoir.** `dbt/state_ref/` et `dbt/essais/` sont dans `.gitignore`. Les builds sur la copie
+  remplacent `dbt/target/run_results.json` : lancer un `dbt_build` normal avant `resume_tests_dbt.py`.
