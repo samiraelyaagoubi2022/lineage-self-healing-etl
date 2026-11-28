@@ -24,3 +24,5 @@ empreinte_run*.txt
 __pycache__/
 *.pyc
 *.pyo
+dbt/state_ref/
+dbt/essais/

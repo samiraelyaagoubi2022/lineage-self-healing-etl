@@ -449,7 +449,9 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   - 2 noms manquants dans le primaire 2023 (propagés dans `dim_etablissement_education`).
   - 12 doublons détectés dans `dim_etablissement_education` (nouveau test de B).
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
+### J7 - OpenLineage Airflow vers Marquez (A, 2026-11-27)
 
+<<<<<<< HEAD
 ## Banc de pannes J9 (B)
 - `banc/pannes.yml` (10 pannes, vérité terrain) commité en `d2133a5` le 2026-11-26, avant toute exécution ni injection.
 - Répartition prévue : 6 à réparer (P01 à P06), 3 à escalader (P07, P08, P10), 1 à ne pas réparer (P09).
@@ -472,3 +474,133 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - `scripts/verif_reparation.py` : brut réparé comparé à la base saine pour P01 à P05, 0 écart dans les deux sens. Limite : EXCEPT ignore les doublons.
 - P06 : validée par le build seul (un retry ne modifie aucune donnée).
 - Limites : les causes attendues sont celles de nos propres règles ; instantané de référence pris sur la base saine.
+=======
+**Première méthode, abandonnée : `outlets=[Dataset(...)]`**
+- `@task(outlets=[Dataset("duckdb:///...#lineage.raw.{{ source.table }}")])`.
+- `outlets` n'est pas templaté dans Airflow 2.10 : l'interface Airflow affichait le nom littéral
+  `{{ source.table }}`, identique pour les 9 tâches. L'URI d'un Dataset Airflow n'est pas non plus
+  découpée en namespace / nom comme le fait dbt.
+- Constat : `inventaire_marquez.py` donnait « 0 table déclarée » pour tous les jobs Airflow.
+
+**Méthode retenue : émission OpenLineage manuelle dans la tâche**
+- `charger_fichier` envoie `START`, puis `COMPLETE` ou `FAIL` (facet `errorMessage`) à Marquez avec
+  `openlineage-python` (`OpenLineageClient.from_environment()`, variable `OPENLINEAGE_URL`).
+- Job : `ingestion_data_gov_ma.charger_fichier.<table>`, namespace `projet`.
+- Sortie : namespace `duckdb:///opt/airflow/warehouse/lineage.duckdb`, nom `lineage.raw.<table>`
+  (identiques à ceux de dbt).
+- Un échec d'envoi ne casse pas l'ingestion : le log affiche « ATTENTION ».
+- Les jobs créés par le provider Airflow (`charger_fichier`, `choisir_sources`, DAG) existent toujours
+  et déclarent 0 table : c'est normal.
+
+**Résultats (run complet sur les 9 tables, 2026-11-26/27)**
+- `scripts/check_ingestion_lineage.py` : 9/9 tables correctes (sortie déclarée, dernier run COMPLETED,
+  lien vers `stg_<table>`).
+- `scripts/inventaire_marquez.py` : 9 jobs `charger_fichier.<table>`, START 1 / COMPLETE 1, 2 tables
+  déclarées chacun (`sante_hopitaux_2025` : 2 runs, testée seule avant). dbt : 23 tables déclarées.
+- Marquez : graphe continu job d'ingestion, `lineage.raw.<table>`, job dbt, `lineage.staging`,
+  jobs dbt, `lineage.marts` (capture jointe).
+- Correction de l'inventaire : `origine()` classait les jobs dbt `lineage.*` et `test.*` dans Airflow.
+- Limite : « Parent job » = N/A sur notre job (pas de ParentRunFacet).
+
+**Convention de namespace**
+- Jobs (Airflow et dbt) : `projet` (docker-compose.yml, `OPENLINEAGE_NAMESPACE`).
+- Datasets : `duckdb:///opt/airflow/warehouse/lineage.duckdb`, noms `lineage.<schéma>.<table>`.
+
+- Côté dbt (scripts/check_dbt_marquez.py, 2026-11-27) : 13 modèles du manifest, 13 jobs `.build.run`
+  dans Marquez, tous COMPLETED, aucun modèle absent ; 14 jobs `.build.test` (13 modèles + le test
+  sur raw._provenance). Entrées : 1 par stg_*, 8 pour dim_etablissement_education, 4 pour
+  agg_etablissements_par_region_2023. dim_region (seed) n'apparaît pas en entrée des marts qui
+  le joignent : limite déjà connue.
+  - Échec d'ingestion provoqué (URL volontairement fausse sur sante_hopitaux_2025, 2026-11-27) :
+  la réponse n'était pas un XLSX, la tâche est passée en failed (AirflowFailException, sans nouvelle
+  tentative). Ce que contient Marquez :
+  - notre job `ingestion_data_gov_ma.charger_fichier.sante_hopitaux_2025` : run FAILED, un seul facet
+    `errorMessage` (« AirflowFailException: sante_hopitaux_2025 : la reponse n'est pas un fichier
+    XLSX (page HTML ?) ») ; pas de lien vers le DAG (Parent job N/A) ;
+  - job du provider `ingestion_data_gov_ma.charger_fichier` : FAILED, facets `errorMessage` (même
+    message), `parent` (DAG et run Airflow), `airflow_mappedTask` ;
+  - job du DAG `ingestion_data_gov_ma` : FAILED, `errorMessage` = « task_failure », `airflowState`
+    avec l'état de chaque tâche.
+  - Le nom de la table figure dans le nom du job et dans le message : la table en cause se retrouve
+    sans autre source. Le graphe garde les liens vers l'aval dbt : Marquez ne signale pas
+    lui-même les modèles impactés.
+  - L'échec arrive avant l'écriture dans DuckDB (structure du code). Run normal relancé ensuite :
+    9/9 tables correctes.
+  - Graphe unifié sans dataset en double (A, 2026-11-27) : 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (9 raw, `raw._provenance`, 9 staging, 4 marts),
+  aucun nom présent dans deux namespaces, aucun nom issu de l'ancienne méthode (`{{ source.table }}`).
+  Airflow et dbt déclarent les tables brutes sous le même namespace et le même nom : un seul
+  dataset par table. Namespace `default` vide. Restes du jour 1 dans `projet` : datasets
+  `source_brute` et `table_finale` (avec le job `job_test`), à supprimer ou à exclure, à décider avec B.
+  - Fiche vérifiée sur 2 tables jusqu'au fichier source (A, 2026-11-27) : `education_prive_2026`
+  et `sante_hopitaux_2025`. SHA-256 identique entre le fichier téléchargé (`Get-FileHash`),
+  `raw._provenance` (run `manual__2026-11-26T23:53:17+00:00`), la fiche `data/provenance/<table>.md`
+  et `docs/provenance.md` (1f535cb1… et 4f1f5645…) ; lignes chargées 6387 et 184. Le fichier du
+  portail n'a pas changé depuis le 2026-11-18.
+  Écart : les fiches datent du run du 25/11 (commit 5f0fe8b), à régénérer par B ; lien Marquez de
+  la fiche à vérifier sur les fiches régénérées.
+  ### J8 - Graphe unifié et provenance (A, 2026-11-27)
+
+- **Graphe unifié sans dataset en double.** 23 datasets dans le namespace
+  `duckdb:///opt/airflow/warehouse/lineage.duckdb` (4 marts, `raw._provenance`, 9 raw, 9 staging).
+  Aucun nom n'est présent dans deux namespaces, aucun nom ne vient de l'ancienne méthode
+  (`{{ source.table }}`), le namespace `default` est vide. Airflow et dbt déclarent les tables
+  brutes sous le même namespace et le même nom : un seul dataset par table
+  (`scripts/check_doublons_marquez.py`, `scripts/liste_datasets_marquez.py`).
+
+- **Nettoyage des restes du jour 1.** Suppression dans Marquez du job `job_test` et des datasets
+  `source_brute` et `table_finale` (`scripts/nettoyer_restes_jour1.py` : les trois DELETE
+  retournent 200). Après nettoyage : 0 dataset dans le namespace `projet`, 23 dans `duckdb:///…`,
+  aucun job en échec dans l'état courant (`check_echec_marquez.py` n'affiche rien),
+  9/9 tables correctes (`check_ingestion_lineage.py`), 13/13 modèles dbt COMPLETED sans modèle
+  absent (`check_dbt_marquez.py`). Accord de B : à confirmer.
+  L'historique des échecs réels (J3, J5, échec provoqué en J7) reste dans les runs des jobs concernés.
+
+- **Fiches de provenance régénérées** par A (B n'était pas disponible), avec
+  `scripts/gen_provenance.py` (commit `9a49c50`, run `manual__2026-11-26T23:53:17+00:00`) :
+  9 fiches dans `data/provenance/`, chacune avec trois liens Marquez (job d'ingestion, dataset brut,
+  job dbt). Le script refuse de tourner sans `GIT_SHA` et écrit « non renseigné » pour une valeur vide.
+  Vérification par B : à faire.
+
+- **Fiche vérifiée sur 2 tables jusqu'au fichier source** (`education_prive_2026`,
+  `sante_hopitaux_2025`), par `scripts/verifier_fiche.py` (6 contrôles OK par table).
+  SHA-256 identique entre la fiche, `raw._provenance`, la colonne `_sha256` de la table brute, le
+  staging et `docs/provenance.md` (1f535cb1… et 4f1f5645…) ; lignes 6387 et 184 identiques partout ;
+  URL de la fiche identique à celle de `raw._provenance` ; fichier du portail re-téléchargé avec la
+  même empreinte, donc inchangé depuis le 2026-11-18. Les trois liens Marquez ouverts et corrects
+  pour les deux tables.
+### J9 - Analyse d'impact (A, 2026-11-28)
+
+- **Analyse d'impact (dbt `state:modified+` et Marquez).** `scripts/analyse_impact.py` donne le périmètre
+  par `dbt ls`, le compare au graphe de lineage de Marquez et y ajoute l'état des jobs (puce suivante).
+  Il écrit un rapport Markdown dans `data/rapports/`. Quatre scénarios : panne sur une table brute,
+  modèle modifié, seed modifié, autre table brute. Synthèse : `docs/analyse_impact_j9.md`.
+  dbt et Marquez concordent sur le flux de données ; Marquez ne voit pas le seed `dim_region`
+  (départ introuvable, HTTP 404). Méthode retenue, validée avec B : manifest dbt pour le périmètre,
+  Marquez pour l'état des jobs et des runs.
+
+- **État des jobs dans Marquez.** `analyse_impact.py` affiche aussi, pour le job producteur du départ et
+  le job dbt de chaque modèle du périmètre, l'état du dernier run et le message d'erreur du dernier échec.
+  Sur les quatre scénarios : tous les jobs `COMPLETED`, aucun échec dans l'état courant. Cas du seed :
+  départ absent de Marquez, le tableau est quand même rempli grâce au nom des jobs dbt.
+
+- **Rapport exact sur 3 changements simulés.** Pour chaque changement, prédiction (`dbt ls`) puis
+  vrai `dbt build` sur une copie de la base (`essai.duckdb`, `DUCKDB_PATH`), comparés à un build de
+  référence (`scripts/simuler_changement.py`, `scripts/comparer_impact.py`). La vraie base n'est pas modifiée.
+
+  | Changement | Prédit | Observé | Omis | Part touchée |
+  |---|---|---|---|---|
+  | `REGION` renommée `LL_REG` (table brute) | 20 | 20 | 0 | 100 % |
+  | `region` renommée dans `stg_education_prive_2026` | 17 | 13 | 0 | 76 % |
+  | Seed `dim_region` : « Grand Casablanca-Settat » devient « Casablanca-Settat » | 31 | 24 | 0 | 77 % |
+
+  Aucun omis sur les 3 changements ; prédiction exacte pour le premier, périmètre maximal pour les
+  deux autres (nœud modifié, ses tests et tests hors de la colonne touchée). Renommer la région dans le
+  seed corrige les tests 2026 (3625 lignes) mais casse les tests 2023 (3169 lignes). Rapport :
+  `docs/rapport_changements_simules_j9.md`, détails dans `data/rapports/simulation_*.md`.
+
+- **À savoir.** `dbt/state_ref/` et `dbt/essais/` sont dans `.gitignore`. Les builds sur la copie
+  remplacent `dbt/target/run_results.json` : lancer un `dbt_build` normal avant `resume_tests_dbt.py`.
+
+- **Vérification par B** : à faire (analyse d'impact et rapport sur 3 changements simulés).
+>>>>>>> origin/main
