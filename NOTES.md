@@ -545,15 +545,20 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   URL de la fiche identique à celle de `raw._provenance` ; fichier du portail re-téléchargé avec la
   même empreinte, donc inchangé depuis le 2026-11-18. Les trois liens Marquez ouverts et corrects
   pour les deux tables.
-
 ### J9 - Analyse d'impact (A, 2026-11-28)
 
-- **Analyse d'impact (dbt `state:modified+` et Marquez).** `scripts/analyse_impact.py` compare le
-  périmètre donné par `dbt ls` et le graphe de lineage de Marquez, et écrit un rapport Markdown dans
-  `data/rapports/`. Trois scénarios : panne sur une table brute, modèle modifié, seed modifié.
-  Synthèse : `docs/analyse_impact_j9.md`. Dbt et Marquez concordent sur le flux de données ;
-  Marquez ne voit pas le seed `dim_region` (départ introuvable, HTTP 404). Proposition retenue,
-  validée avec B : manifest dbt pour le périmètre, Marquez pour l'état des jobs et des runs.
+- **Analyse d'impact (dbt `state:modified+` et Marquez).** `scripts/analyse_impact.py` donne le périmètre
+  par `dbt ls`, le compare au graphe de lineage de Marquez et y ajoute l'état des jobs (puce suivante).
+  Il écrit un rapport Markdown dans `data/rapports/`. Quatre scénarios : panne sur une table brute,
+  modèle modifié, seed modifié, autre table brute. Synthèse : `docs/analyse_impact_j9.md`.
+  dbt et Marquez concordent sur le flux de données ; Marquez ne voit pas le seed `dim_region`
+  (départ introuvable, HTTP 404). Méthode retenue, validée avec B : manifest dbt pour le périmètre,
+  Marquez pour l'état des jobs et des runs.
+
+- **État des jobs dans Marquez.** `analyse_impact.py` affiche aussi, pour le job producteur du départ et
+  le job dbt de chaque modèle du périmètre, l'état du dernier run et le message d'erreur du dernier échec.
+  Sur les quatre scénarios : tous les jobs `COMPLETED`, aucun échec dans l'état courant. Cas du seed :
+  départ absent de Marquez, le tableau est quand même rempli grâce au nom des jobs dbt.
 
 - **Rapport exact sur 3 changements simulés.** Pour chaque changement, prédiction (`dbt ls`) puis
   vrai `dbt build` sur une copie de la base (`essai.duckdb`, `DUCKDB_PATH`), comparés à un build de
@@ -572,3 +577,5 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 
 - **À savoir.** `dbt/state_ref/` et `dbt/essais/` sont dans `.gitignore`. Les builds sur la copie
   remplacent `dbt/target/run_results.json` : lancer un `dbt_build` normal avant `resume_tests_dbt.py`.
+
+- **Vérification par B** : à faire (analyse d'impact et rapport sur 3 changements simulés).
