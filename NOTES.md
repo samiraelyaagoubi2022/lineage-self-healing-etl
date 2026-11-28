@@ -451,7 +451,6 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - ⚠️ **Leçon apprise** : `dbt docs generate` écrase `run_results.json` avec un état vide (46 success). Toujours lancer `resume_tests_dbt.py` **après un `dbt build`**, jamais après `docs generate`.
 ### J7 - OpenLineage Airflow vers Marquez (A, 2026-11-27)
 
-<<<<<<< HEAD
 ## Banc de pannes J9 (B)
 - `banc/pannes.yml` (10 pannes, vérité terrain) commité en `d2133a5` le 2026-11-26, avant toute exécution ni injection.
 - Répartition prévue : 6 à réparer (P01 à P06), 3 à escalader (P07, P08, P10), 1 à ne pas réparer (P09).
@@ -474,7 +473,6 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
 - `scripts/verif_reparation.py` : brut réparé comparé à la base saine pour P01 à P05, 0 écart dans les deux sens. Limite : EXCEPT ignore les doublons.
 - P06 : validée par le build seul (un retry ne modifie aucune donnée).
 - Limites : les causes attendues sont celles de nos propres règles ; instantané de référence pris sur la base saine.
-=======
 **Première méthode, abandonnée : `outlets=[Dataset(...)]`**
 - `@task(outlets=[Dataset("duckdb:///...#lineage.raw.{{ source.table }}")])`.
 - `outlets` n'est pas templaté dans Airflow 2.10 : l'interface Airflow affichait le nom littéral
@@ -603,4 +601,3 @@ Dix événements `FAIL` au total. Un seul job a un dernier run `FAILED` : `job_t
   remplacent `dbt/target/run_results.json` : lancer un `dbt_build` normal avant `resume_tests_dbt.py`.
 
 - **Vérification par B** : à faire (analyse d'impact et rapport sur 3 changements simulés).
->>>>>>> origin/main
